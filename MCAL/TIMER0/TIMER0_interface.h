@@ -14,6 +14,7 @@
 #define TIMER0_PRESCALER_256    0x07u
 
 void TIMER0_Init(void);
+void TIMER0_Reset(void);        /* reset overflow counter and TMR0 (restart cycle) */
 void TIMER0_SetCallback(void (*ptr)(void));
 void TIMER0_IRQHandler(void);   /* call from interrupt() dispatcher in main.c */
 

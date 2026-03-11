@@ -26,6 +26,13 @@ void TIMER0_Init(void)
     SET_BIT(INTCON, INTCON_GIE);
 }
 
+void TIMER0_Reset(void)
+{
+    CLR_BIT(INTCON, INTCON_T0IF);
+    ovf_count = 0;
+    TMR0 = 0;
+}
+
 void TIMER0_SetCallback(void (*ptr)(void))
 {
     TIMER0_Callback = ptr;
