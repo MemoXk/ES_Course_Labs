@@ -20,10 +20,22 @@ void TIMER0_Init(void)
     /* Start Timer0 from 0 (first period is a full overflow) */
     TMR0 = 0;
 
-    /* Clear flag, enable Timer0 overflow interrupt and global interrupts */
+    /* Clear overflow flag; caller must invoke TIMER0_EnableInterrupt() to unmask */
+    CLR_BIT(INTCON, INTCON_T0IF);
+}
+
+void TIMER0_EnableInterrupt(void)
+{
     CLR_BIT(INTCON, INTCON_T0IF);
     SET_BIT(INTCON, INTCON_T0IE);
     SET_BIT(INTCON, INTCON_GIE);
+}
+
+void TIMER0_Reset(void)
+{
+    ovf_count = 0;
+    TMR0 = 0;
+    CLR_BIT(INTCON, INTCON_T0IF);
 }
 
 void TIMER0_SetCallback(void (*ptr)(void))
@@ -33,9 +45,9 @@ void TIMER0_SetCallback(void (*ptr)(void))
 
 /*  Mixed-overflow strategy — called from interrupt() in APP/main.c.
     ISR fires after each Timer0 overflow; we track how many have occurred:
-      ovf_count 1..29 : reload TMR0=0    (full 256-count overflow, 32.768 ms)
-      ovf_count == 30  : reload TMR0=124 (partial 132-count overflow, 16.896 ms)
-      ovf_count == 31  : 30×256+132 = 7812 counts × 128 µs ≈ 1 second → fire callback */
+      ovf_count 1..75 : reload TMR0=0    (full 256-count overflow, 32.768 ms each)
+      ovf_count == 76  : reload TMR0=181 (partial 75-count overflow, 9.600 ms)
+      ovf_count == 77  : 76×256+75 = 19531 counts × 128 µs ≈ 2.5 seconds → fire callback */
 void TIMER0_IRQHandler(void)
 {
     if (!GET_BIT(INTCON, INTCON_T0IF))
@@ -56,7 +68,7 @@ void TIMER0_IRQHandler(void)
         ovf_count = 0;
         TMR0 = 0;                             /* restart cycle          */
         if (TIMER0_Callback != NULL_PTR)
-            TIMER0_Callback();                /* ~1 second has elapsed  */
+            TIMER0_Callback();                /* ~2.5 seconds elapsed   */
     }
 
     CLR_BIT(INTCON, INTCON_T0IF);
