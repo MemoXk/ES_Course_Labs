@@ -14,20 +14,20 @@ void (*UART_Callback)(u8) = 0;
 void UART_RX_Init(void)
 {
 
-    SET_BIT(TXSTA , BRGH);              /* High Speed Mode */
+    SET_BIT(TXSTA , BRGH_BIT);              /* High Speed Mode */
 
     SPBRG = UART_SPBRG_VALUE;          /* Baud rate from config */
 
-    CLR_BIT(TXSTA , SYNC);      // Asynchronous Mode
+    CLR_BIT(TXSTA , SYNC_BIT);      // Asynchronous Mode
 
-    SET_BIT(RCSTA , SPEN);      // Enable Serial Port
+    SET_BIT(RCSTA , SPEN_BIT);      // Enable Serial Port
 
-    SET_BIT(RCSTA , CREN);      // Continuous Receive
+    SET_BIT(RCSTA , CREN_BIT);      // Continuous Receive
 
-    SET_BIT(PIE1 , RCIE);       // Enable UART RX Interrupt
+    SET_BIT(PIE1 , RCIE_BIT);       // Enable UART RX Interrupt
 
-    SET_BIT(INTCON , PEIE);     // Peripheral Interrupt Enable
-    SET_BIT(INTCON , GIE);      // Global Interrupt Enable
+    SET_BIT(INTCON , PEIE_BIT);     // Peripheral Interrupt Enable
+    SET_BIT(INTCON , GIE_BIT);      // Global Interrupt Enable
 }
 
 /* =================================
@@ -37,15 +37,15 @@ void UART_RX_Init(void)
 void UART_TX_Init(void)
 {
 
-    SET_BIT(TXSTA , BRGH);              /* High Speed */
+    SET_BIT(TXSTA , BRGH_BIT);              /* High Speed */
 
     SPBRG = UART_SPBRG_VALUE;          /* Baud rate from config */
 
-    CLR_BIT(TXSTA , SYNC);      // Asynchronous Mode
+    CLR_BIT(TXSTA , SYNC_BIT);      // Asynchronous Mode
 
-    SET_BIT(RCSTA , SPEN);      // Enable Serial Port
+    SET_BIT(RCSTA , SPEN_BIT);      // Enable Serial Port
 
-    SET_BIT(TXSTA , TXEN);      // Enable Transmission
+    SET_BIT(TXSTA , TXEN_BIT);      // Enable Transmission
 }
 
 /* =================================
@@ -55,7 +55,7 @@ void UART_TX_Init(void)
 void UART_Write(u8 Data)
 {
 
-    while(!GET_BIT(TXSTA , TRMT));   // Wait until TX empty
+    while(!GET_BIT(TXSTA , TRMT_BIT));   // Wait until TX empty
 
     TXREG = Data;
 }
@@ -67,7 +67,7 @@ void UART_Write(u8 Data)
 u8 UART_Read(void)
 {
 
-    while(!GET_BIT(PIR1 , RCIF));    // Wait for data
+    while(!GET_BIT(PIR1 , RCIF_BIT));    // Wait for data
 
     return RCREG;
 }
@@ -79,7 +79,7 @@ u8 UART_Read(void)
 u8 UART_TX_Empty(void)
 {
 
-    return GET_BIT(TXSTA , TRMT);
+    return GET_BIT(TXSTA , TRMT_BIT);
 }
 
 /* =================================

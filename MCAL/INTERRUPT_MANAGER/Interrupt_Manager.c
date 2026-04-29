@@ -14,7 +14,7 @@
 void __interrupt() isr(void)
 {
     /* ---- UART RX interrupt (PIR1.RCIF) ---- */
-    if(GET_BIT(PIR1, RCIF))
+    if(GET_BIT(PIR1, RCIF_BIT))
     {
         UART_ISR();
     }

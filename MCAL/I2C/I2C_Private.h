@@ -23,13 +23,17 @@
 #define SSPCON      (*(volatile u8*)0x14)
 #endif
 
+#ifndef SSPCON2
 #define SSPCON2     (*(volatile u8*)0x91)   /* SSP control register 2 (bank 1) */
+#endif
 
 #ifndef SSPSTAT
 #define SSPSTAT     (*(volatile u8*)0x94)
 #endif
 
+#ifndef SSPADD
 #define SSPADD      (*(volatile u8*)0x93)   /* I2C slave address / baud rate   */
+#endif
 
 /* PIR1 — shared */
 #ifndef PIR1

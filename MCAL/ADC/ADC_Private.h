@@ -11,10 +11,18 @@
  *   AN6–AN7 → RE1–RE2  (only on 877A 40-pin package)
  */
 
+#ifndef ADCON0
 #define ADCON0      (*(volatile u8*)0x1F)   /* ADC control register 0 (bank 0) */
+#endif
+#ifndef ADCON1
 #define ADCON1      (*(volatile u8*)0x9F)   /* ADC control register 1 (bank 1) */
+#endif
+#ifndef ADRESH
 #define ADRESH      (*(volatile u8*)0x1E)   /* ADC result high byte  (bank 0)  */
+#endif
+#ifndef ADRESL
 #define ADRESL      (*(volatile u8*)0x9E)   /* ADC result low byte   (bank 1)  */
+#endif
 
 /* PIR1 — shared */
 #ifndef PIR1

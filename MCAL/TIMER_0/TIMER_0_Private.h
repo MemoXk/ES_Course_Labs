@@ -4,7 +4,9 @@
 #include "../../SERVICES/STD_TYPES.h"
 
 /* PIC16F877A Timer0 registers */
+#ifndef TMR0
 #define TMR0        (*(volatile u8*)0x01)
+#endif
 
 /* OPTION_REG (bank 1: 0x81) — shared with EXT_INT */
 #ifndef OPTION_REG

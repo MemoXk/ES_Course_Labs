@@ -14,12 +14,20 @@
  */
 
 /* CCP2 registers */
+#ifndef CCPR2L
 #define CCPR2L      (*(volatile u8*)0x1B)   /* Capture/Compare/PWM register 2 low */
+#endif
+#ifndef CCP2CON
 #define CCP2CON     (*(volatile u8*)0x1D)   /* CCP2 control register              */
+#endif
 
 /* Timer2 registers (shared between CCP1 and CCP2) */
+#ifndef T2CON
 #define T2CON       (*(volatile u8*)0x12)   /* Timer2 control register            */
+#endif
+#ifndef PR2
 #define PR2         (*(volatile u8*)0x92)   /* Timer2 period register (bank 1)    */
+#endif
 
 /* PIR1 / PIE1 — shared with other drivers */
 #ifndef PIR1

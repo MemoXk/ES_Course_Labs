@@ -3,11 +3,21 @@
 
 /* ================= Register Addresses (PIC16F877A) ================= */
 
+#ifndef TXSTA
 #define TXSTA   (*(volatile unsigned char*)0x98)
+#endif
+#ifndef RCSTA
 #define RCSTA   (*(volatile unsigned char*)0x18)
+#endif
+#ifndef SPBRG
 #define SPBRG   (*(volatile unsigned char*)0x99)
+#endif
+#ifndef TXREG
 #define TXREG   (*(volatile unsigned char*)0x19)
+#endif
+#ifndef RCREG
 #define RCREG   (*(volatile unsigned char*)0x1A)
+#endif
 
 #ifndef PIR1
 #define PIR1    (*(volatile unsigned char*)0x0C)
@@ -21,29 +31,29 @@
 #define INTCON  (*(volatile unsigned char*)0x0B)
 #endif
 
-/* ================= TXSTA Bits ================= */
+/* ================= TXSTA Bit positions ================= */
 
-#define TXEN   5
-#define BRGH   2
-#define SYNC   4
-#define TRMT   1
+#define TXEN_BIT   5
+#define BRGH_BIT   2
+#define SYNC_BIT   4
+#define TRMT_BIT   1
 
-/* ================= RCSTA Bits ================= */
+/* ================= RCSTA Bit positions ================= */
 
-#define SPEN   7
-#define CREN   4
+#define SPEN_BIT   7
+#define CREN_BIT   4
 
-/* ================= PIR1 Bits ================= */
+/* ================= PIR1 Bit positions ================= */
 
-#define RCIF   5
+#define RCIF_BIT   5
 
-/* ================= PIE1 Bits ================= */
+/* ================= PIE1 Bit positions ================= */
 
-#define RCIE   5
+#define RCIE_BIT   5
 
-/* ================= INTCON Bits ================= */
+/* ================= INTCON Bit positions ================= */
 
-#define PEIE   6
-#define GIE    7
+#define PEIE_BIT   6
+#define GIE_BIT    7
 
 #endif
