@@ -9,9 +9,9 @@ void SOFT_PWM_Init(void)
 void SOFT_PWM_Tick(void)
 {
     GPIO_SetPinValue(SOFT_PWM_PORT, SOFT_PWM_PIN, GPIO_HIGH);
-    Delay_us(SOFT_PWM_HIGH_US);
+    __delay_us(SOFT_PWM_HIGH_US);
     GPIO_SetPinValue(SOFT_PWM_PORT, SOFT_PWM_PIN, GPIO_LOW);
-    Delay_us(SOFT_PWM_LOW_US);
+    __delay_us(SOFT_PWM_LOW_US);
 }
 
 void SOFT_PWM_Stop(void)

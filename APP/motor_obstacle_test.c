@@ -32,7 +32,7 @@ void MOTOR_OBSTACLE_Test(void)
 
             while(ULTRASONIC_GetDistance(ULTRASONIC_FRONT) < ULTRASONIC_STOP_THRESHOLD)
             {
-                Delay_ms(50);
+                __delay_ms(50);
             }
 
             MOTOR_Forward();

@@ -6,6 +6,9 @@
 #define _XTAL_FREQ  20000000UL
 #endif
 
+/* XC8: provides __delay_ms, __delay_us and all PIC SFR definitions */
+#include <xc.h>
+
 /* Signed Types */
 typedef signed char        s8;
 typedef signed short int   s16;
