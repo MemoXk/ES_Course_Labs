@@ -4,21 +4,21 @@
 #include "../../SERVICES/STD_TYPES.h"
 
 /*
- * PIC16F877A PWM using CCP2 module + Timer2
+ * PIC16F877A PWM using CCP1 module + Timer2
  *
- * CCP2 output pin : RC1 (PORTC pin 1) — moved from RC2 (damaged)
+ * CCP1 output pin : RC2 (PORTC pin 2, pin 17)
  * PWM period      : set via PR2 (Timer2 period register)
- * Duty cycle      : CCPR2L (upper 8 bits) + CCP2CON<5:4> (lower 2 bits)
+ * Duty cycle      : CCPR1L (upper 8 bits) + CCP1CON<5:4> (lower 2 bits)
  *
  * PWM frequency = Fosc / (4 * (PR2 + 1) * TMR2_prescaler)
  */
 
-/* CCP2 registers */
-#ifndef CCPR2L
-#define CCPR2L      (*(volatile u8*)0x1B)   /* Capture/Compare/PWM register 2 low */
+/* CCP1 registers */
+#ifndef CCPR1L
+#define CCPR1L      (*(volatile u8*)0x15)   /* Capture/Compare/PWM register 1 low */
 #endif
-#ifndef CCP2CON
-#define CCP2CON     (*(volatile u8*)0x1D)   /* CCP2 control register              */
+#ifndef CCP1CON
+#define CCP1CON     (*(volatile u8*)0x17)   /* CCP1 control register              */
 #endif
 
 /* Timer2 registers (shared between CCP1 and CCP2) */
@@ -38,12 +38,12 @@
 #define PIE1        (*(volatile u8*)0x8C)
 #endif
 
-/* ================= CCP2CON bit positions ================= */
-#define DC2B0_BIT   4   /* Duty cycle LSB-1 */
-#define DC2B1_BIT   5   /* Duty cycle LSB-0 */
+/* ================= CCP1CON bit positions ================= */
+#define DC1B0_BIT   4   /* Duty cycle LSB-1 */
+#define DC1B1_BIT   5   /* Duty cycle LSB-0 */
 
-/* CCP2M bits 3:0 — PWM mode: 0b1100 */
-#define CCP2_PWM_MODE   0x0C
+/* CCP1M bits 3:0 — PWM mode: 0b1100 */
+#define CCP1_PWM_MODE   0x0C
 
 /* ================= T2CON bit positions ================= */
 #define TMR2ON_BIT  2   /* Timer2 on/off */
