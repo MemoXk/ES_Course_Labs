@@ -1,6 +1,11 @@
 #ifndef STD_TYPES_H
 #define STD_TYPES_H
 
+/* Crystal frequency — required by XC8 __delay_ms() / __delay_us() */
+#ifndef _XTAL_FREQ
+#define _XTAL_FREQ  20000000UL
+#endif
+
 /* Signed Types */
 typedef signed char        s8;
 typedef signed short int   s16;

@@ -1,0 +1,8 @@
+#ifndef SOFT_PWM_PRIVATE_H
+#define SOFT_PWM_PRIVATE_H
+
+/* Period = HIGH_US + LOW_US */
+#define SOFT_PWM_HIGH_US    ((u16)((u32)SOFT_PWM_PERIOD_US * SOFT_PWM_DUTY / 100u))
+#define SOFT_PWM_LOW_US     ((u16)(SOFT_PWM_PERIOD_US - SOFT_PWM_HIGH_US))
+
+#endif

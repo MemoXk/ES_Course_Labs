@@ -35,6 +35,12 @@ static u8 pin_lookup(u8 sensor_id,
             *echo_port = ULTRASONIC_RIGHT_ECHO_PORT;
             *echo_pin  = ULTRASONIC_RIGHT_ECHO_PIN;
             break;
+        case ULTRASONIC_EXTRA:
+            *trig_port = ULTRASONIC_EXTRA_TRIG_PORT;
+            *trig_pin  = ULTRASONIC_EXTRA_TRIG_PIN;
+            *echo_port = ULTRASONIC_EXTRA_ECHO_PORT;
+            *echo_pin  = ULTRASONIC_EXTRA_ECHO_PIN;
+            break;
         default:
             return 1u;
     }
@@ -51,17 +57,20 @@ void ULTRASONIC_Init(void)
     GPIO_SetPinDirection(ULTRASONIC_BACK_TRIG_PORT,  ULTRASONIC_BACK_TRIG_PIN,  GPIO_OUTPUT);
     GPIO_SetPinDirection(ULTRASONIC_LEFT_TRIG_PORT,  ULTRASONIC_LEFT_TRIG_PIN,  GPIO_OUTPUT);
     GPIO_SetPinDirection(ULTRASONIC_RIGHT_TRIG_PORT, ULTRASONIC_RIGHT_TRIG_PIN, GPIO_OUTPUT);
+    GPIO_SetPinDirection(ULTRASONIC_EXTRA_TRIG_PORT, ULTRASONIC_EXTRA_TRIG_PIN, GPIO_OUTPUT);
 
     GPIO_SetPinValue(ULTRASONIC_FRONT_TRIG_PORT, ULTRASONIC_FRONT_TRIG_PIN, GPIO_LOW);
     GPIO_SetPinValue(ULTRASONIC_BACK_TRIG_PORT,  ULTRASONIC_BACK_TRIG_PIN,  GPIO_LOW);
     GPIO_SetPinValue(ULTRASONIC_LEFT_TRIG_PORT,  ULTRASONIC_LEFT_TRIG_PIN,  GPIO_LOW);
     GPIO_SetPinValue(ULTRASONIC_RIGHT_TRIG_PORT, ULTRASONIC_RIGHT_TRIG_PIN, GPIO_LOW);
+    GPIO_SetPinValue(ULTRASONIC_EXTRA_TRIG_PORT, ULTRASONIC_EXTRA_TRIG_PIN, GPIO_LOW);
 
     /* ECHO pins → input */
     GPIO_SetPinDirection(ULTRASONIC_FRONT_ECHO_PORT, ULTRASONIC_FRONT_ECHO_PIN, GPIO_INPUT);
     GPIO_SetPinDirection(ULTRASONIC_BACK_ECHO_PORT,  ULTRASONIC_BACK_ECHO_PIN,  GPIO_INPUT);
     GPIO_SetPinDirection(ULTRASONIC_LEFT_ECHO_PORT,  ULTRASONIC_LEFT_ECHO_PIN,  GPIO_INPUT);
     GPIO_SetPinDirection(ULTRASONIC_RIGHT_ECHO_PORT, ULTRASONIC_RIGHT_ECHO_PIN, GPIO_INPUT);
+    GPIO_SetPinDirection(ULTRASONIC_EXTRA_ECHO_PORT, ULTRASONIC_EXTRA_ECHO_PIN, GPIO_INPUT);
 }
 
 /* =========================================================
@@ -83,9 +92,9 @@ u16 ULTRASONIC_GetDistance(u8 sensor_id)
 
     /* Send 10 µs trigger pulse */
     GPIO_SetPinValue(trig_port, trig_pin, GPIO_LOW);
-    Delay_us(2);
+    __delay_us(2);
     GPIO_SetPinValue(trig_port, trig_pin, GPIO_HIGH);
-    Delay_us(10);
+    __delay_us(10);
     GPIO_SetPinValue(trig_port, trig_pin, GPIO_LOW);
 
     /* Wait for echo to go HIGH (with timeout) */
