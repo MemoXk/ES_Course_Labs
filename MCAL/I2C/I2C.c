@@ -84,14 +84,14 @@ u8 I2C_WriteByte(u8 Data)
 
 u8 I2C_ReadByte(u8 ack)
 {
-    u8 data;
+    u8 rxByte;
 
     CLR_BIT(PIR1, SSPIF_BIT);
     SET_BIT(SSPCON2, RCEN_BIT);             /* Enable receive mode      */
     while(!GET_BIT(PIR1, SSPIF_BIT)) { ; } /* Wait for byte received   */
     CLR_BIT(PIR1, SSPIF_BIT);
 
-    data = SSPBUF;
+    rxByte = SSPBUF;
 
     /* Send ACK or NACK */
     if(ack == I2C_SEND_ACK)
@@ -108,7 +108,7 @@ u8 I2C_ReadByte(u8 ack)
     while(!GET_BIT(PIR1, SSPIF_BIT)) { ; }
     CLR_BIT(PIR1, SSPIF_BIT);
 
-    return data;
+    return rxByte;
 }
 
 /* =========================================================
