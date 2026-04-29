@@ -1,0 +1,50 @@
+#include "MOTOR_interface.h"
+
+void MOTOR_Init(void)
+{
+    GPIO_SetPinDirection(MOTOR_PORT, MOTOR_IN1, GPIO_OUTPUT);
+    GPIO_SetPinDirection(MOTOR_PORT, MOTOR_IN2, GPIO_OUTPUT);
+    GPIO_SetPinDirection(MOTOR_PORT, MOTOR_IN3, GPIO_OUTPUT);
+    GPIO_SetPinDirection(MOTOR_PORT, MOTOR_IN4, GPIO_OUTPUT);
+    MOTOR_Stop();
+}
+
+void MOTOR_Forward(void)
+{
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN1, GPIO_HIGH);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN2, GPIO_LOW);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN3, GPIO_HIGH);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN4, GPIO_LOW);
+}
+
+void MOTOR_Backward(void)
+{
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN1, GPIO_LOW);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN2, GPIO_HIGH);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN3, GPIO_LOW);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN4, GPIO_HIGH);
+}
+
+void MOTOR_TurnLeft(void)
+{
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN1, GPIO_LOW);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN2, GPIO_HIGH);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN3, GPIO_HIGH);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN4, GPIO_LOW);
+}
+
+void MOTOR_TurnRight(void)
+{
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN1, GPIO_HIGH);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN2, GPIO_LOW);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN3, GPIO_LOW);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN4, GPIO_HIGH);
+}
+
+void MOTOR_Stop(void)
+{
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN1, GPIO_LOW);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN2, GPIO_LOW);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN3, GPIO_LOW);
+    GPIO_SetPinValue(MOTOR_PORT, MOTOR_IN4, GPIO_LOW);
+}

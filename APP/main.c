@@ -13,9 +13,11 @@
 #include "uart_test.h"
 #include "spi_test.h"
 #include "i2c_test.h"
+#include "motor_test.h"
 
 int main(void)
 {
+    MOTOR_Test();       /* MOTOR: forward/backward/stop with 2s delays */
     GPIO_Test();        /* GPIO: direction, write, read           */
     UART_Test();        /* UART: TX string, RX echo callback      */
     EXT_INT_Test();     /* EXT INT: edge config, callback, enable */
