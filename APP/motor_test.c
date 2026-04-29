@@ -55,7 +55,7 @@ void MOTOR_Test(void)
 
     /* PWM on RC2 → ENA/ENB at 25% */
     PWM_Init();
-    PWM_SetDutyCycle(25);
+    PWM_SetDutyCycle(65);
     PWM_Start();
 
     while(1)
