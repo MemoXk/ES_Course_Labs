@@ -17,6 +17,15 @@ u8 UART_Read(void);
 /* Status */
 u8 UART_TX_Empty(void);
 
+/* Polled RX (no interrupt required) */
+void UART_RX_Enable_Polled(void);
+u8   UART_RX_HasData(void);
+
+/* ISR-driven RX (use with UART_RX_Init)
+ * ISR writes the byte; main loop reads these getters.        */
+u8   UART_RX_IsReady(void);
+u8   UART_RX_GetByte(void);
+
 void UART_SetCallback(void (*Callback)(u8));
 void UART_ISR(void);
 

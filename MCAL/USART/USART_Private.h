@@ -42,6 +42,8 @@
 
 #define SPEN_BIT   7
 #define CREN_BIT   4
+#define FERR_BIT   2   /* Framing Error  */
+#define OERR_BIT   1   /* Overrun Error  */
 
 /* ================= PIR1 Bit positions ================= */
 
