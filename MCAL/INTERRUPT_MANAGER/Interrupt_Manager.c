@@ -6,7 +6,7 @@
 /*
  * Central interrupt dispatcher for PIC16F877A.
  *
- * MikroC uses a single void interrupt() entry point.
+ * XC8 uses a single __interrupt() entry point.
  * Each peripheral's ISR function is called after checking its flag.
  * Flags are cleared inside each driver's ISR routine.
  */

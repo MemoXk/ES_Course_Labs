@@ -13,12 +13,18 @@ void SPI_MasterInit(void)
 
     /* Configure SSPSTAT: SMP and CKE from config */
     SSPSTAT = 0x00;
-    if(SPI_SMP_VALUE) { SET_BIT(SSPSTAT, SMP_BIT); } else { CLR_BIT(SSPSTAT, SMP_BIT); }
-    if(SPI_CKE_VALUE) { SET_BIT(SSPSTAT, CKE_BIT); } else { CLR_BIT(SSPSTAT, CKE_BIT); }
+#if SPI_SMP_VALUE
+    SET_BIT(SSPSTAT, SMP_BIT);
+#endif
+#if SPI_CKE_VALUE
+    SET_BIT(SSPSTAT, CKE_BIT);
+#endif
 
     /* Configure SSPCON: speed, polarity, enable */
-    SSPCON = (SSPCON & ~SSPM_MASK) | (SPI_SPEED_MODE & SSPM_MASK);
-    if(SPI_CKP_VALUE) { SET_BIT(SSPCON, CKP_BIT); } else { CLR_BIT(SSPCON, CKP_BIT); }
+    SSPCON = (u8)(SPI_SPEED_MODE & SSPM_MASK);
+#if SPI_CKP_VALUE
+    SET_BIT(SSPCON, CKP_BIT);
+#endif
     SET_BIT(SSPCON, SSPEN_BIT);
 
     /* Clear interrupt flag */

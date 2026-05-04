@@ -5,7 +5,7 @@
  * SPI Configuration for PIC16F877A
  *
  * Mode: SPI Master
- * Clock speed: Fosc/16 = 500 kHz @ 8 MHz (was 250 kHz @ 4 MHz)
+ * Clock speed: Fosc/16 = 1.25 MHz @ 20 MHz
  * Clock polarity (CPOL): 0 — SCK idle low
  * Clock phase   (CPHA): 0 — data sampled on rising edge, shifted on falling
  *   → SMP=0 (sample in middle), CKE=1 (transmit on active-to-idle = falling)

@@ -76,8 +76,8 @@ void ULTRASONIC_Init(void)
 /* =========================================================
    ULTRASONIC_GetDistance
    Returns distance in cm, or ULTRASONIC_NO_OBJ if no echo.
-   Timer1 is used for pulse-width measurement:
-     @ 20 MHz, prescaler 1:2 → 1 tick = 0.4 µs → 145 ticks/cm
+   MCAL Timer1 is used for pulse-width measurement:
+     @ 20 MHz, prescaler 1:2 -> 1 tick = 0.4 us -> 145 ticks/cm
 ========================================================= */
 u16 ULTRASONIC_GetDistance(u8 sensor_id)
 {
@@ -109,23 +109,23 @@ u16 ULTRASONIC_GetDistance(u8 sensor_id)
     }
 
     /* Start Timer1: prescaler 1:2, internal clock */
-    TMR1H = 0u;
-    TMR1L = 0u;
-    T1CON = T1CON_START;
+    TIMER1_Init();
+    TIMER1_Reset();
+    TIMER1_Start();
 
     /* Measure echo HIGH duration, stop on overflow guard (~400 cm) */
     while(GPIO_GetPinValue(echo_port, echo_pin) == GPIO_HIGH)
     {
-        if(TMR1H >= ULTRASONIC_OVERFLOW_H)
+        if(TIMER1_GetHighByte() >= ULTRASONIC_OVERFLOW_H)
         {
-            T1CON = T1CON_STOP;
+            TIMER1_Stop();
             return ULTRASONIC_NO_OBJ;
         }
     }
 
-    T1CON = T1CON_STOP;
+    TIMER1_Stop();
 
-    ticks = ((u16)TMR1H << 8) | (u16)TMR1L;
+    ticks = TIMER1_GetValue();
 
     return (u16)(ticks / ULTRASONIC_TICKS_PER_CM);
 }

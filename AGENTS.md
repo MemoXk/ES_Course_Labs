@@ -69,12 +69,12 @@ Wiring:
 
 ## Known Cleanup Backlog
 
-1. Update I2C clock config from 8 MHz to 20 MHz.
-2. Fix EXT_INT edge polarity: `INTEDG=1` means rising, `0` means falling.
-3. Make UART RX handoff race-safe, preferably with a tiny ring buffer or interrupt-guarded read.
-4. Move Timer1 register ownership out of HAL ultrasonic code into MCAL, or explicitly document the architectural exception.
-5. Fix the I2C ACK/NACK interface comment so it matches the constants.
-6. Clean stale 8 MHz/MikroC comments in driver docs.
+Keep these clean during future edits:
+
+1. Clock-dependent driver constants should match 20 MHz.
+2. `EXT_INT_SetEdge()` follows PIC16F877A polarity: `INTEDG=1` rising, `0` falling.
+3. HAL ultrasonic uses MCAL Timer1; do not reintroduce Timer1 SFRs in HAL.
+4. UART RX foreground reads must stay interrupt-safe.
 
 ## Git
 

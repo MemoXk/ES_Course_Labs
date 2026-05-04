@@ -23,7 +23,7 @@ void ADC_Init(void)
 void ADC_SelectChannel(u8 Channel)
 {
     /* Clear CHS bits then set the requested channel */
-    ADCON0 = (ADCON0 & ~ADC_CHANNEL_MASK) | ((Channel & 0x07U) << 3);
+    ADCON0 = (u8)((ADCON0 & (u8)(~ADC_CHANNEL_MASK)) | ((Channel & 0x07U) << 3));
 }
 
 /* =========================================================

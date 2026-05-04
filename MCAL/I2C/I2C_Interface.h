@@ -35,7 +35,7 @@ u8 I2C_WriteByte(u8 Data);
 
 /*
  * Read one byte from the bus.
- * ack: I2C_SEND_ACK (0) to continue reading, I2C_SEND_NACK (1) for last byte.
+ * ack: I2C_SEND_ACK (1) to continue reading, I2C_SEND_NACK (0) for last byte.
  * Returns the received byte.
  */
 u8 I2C_ReadByte(u8 ack);

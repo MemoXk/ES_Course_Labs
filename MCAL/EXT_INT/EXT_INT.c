@@ -39,12 +39,12 @@ void EXT_INT_SetEdge(u8 Edgetype)
     if (Edgetype == rising_edge)
     {
         /* Configure for rising edge */
-        CLR_BIT(OPTION_REG, INTEDGE_BIT); // INTEDG0 = 0 for rising edge
+        SET_BIT(OPTION_REG, INTEDGE_BIT); // INTEDG = 1 for rising edge
     }
     else if (Edgetype == falling_edge)
     {
         /* Configure for falling edge */
-        SET_BIT(OPTION_REG, INTEDGE_BIT); // INTEDG0 = 1 for falling edge
+        CLR_BIT(OPTION_REG, INTEDGE_BIT); // INTEDG = 0 for falling edge
     }
 }
 

@@ -184,8 +184,21 @@ u8 UART_RX_IsReady(void)
 
 u8 UART_RX_GetByte(void)
 {
+    u8 data;
+    u8 gie_was_enabled;
+
+    gie_was_enabled = GET_BIT(INTCON, GIE_BIT);
+    CLR_BIT(INTCON, GIE_BIT);
+
+    data = UART_rx_data;
     UART_rx_ready = 0;
-    return UART_rx_data;
+
+    if(gie_was_enabled)
+    {
+        SET_BIT(INTCON, GIE_BIT);
+    }
+
+    return data;
 }
 
 

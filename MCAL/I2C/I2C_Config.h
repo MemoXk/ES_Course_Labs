@@ -2,19 +2,19 @@
 #define I2C_CONFIG_H
 
 /*
- * I2C Configuration for PIC16F877A @ 8 MHz
+ * I2C Configuration for PIC16F877A @ 20 MHz
  *
  * I2C clock = Fosc / (4 * (SSPADD + 1))
  *
- * For 100 kHz (standard mode) @ 8 MHz:
- *   SSPADD = (8000000 / (4 * 100000)) - 1 = 20 - 1 = 19
+ * For 100 kHz (standard mode) @ 20 MHz:
+ *   SSPADD = (20000000 / (4 * 100000)) - 1 = 50 - 1 = 49
  *
- * For 400 kHz (fast mode) @ 8 MHz:
- *   SSPADD = (8000000 / (4 * 400000)) - 1 = 5 - 1 = 4
+ * For 400 kHz (fast mode) @ 20 MHz:
+ *   SSPADD = (20000000 / (4 * 400000)) - 1 = 12.5 - 1 ~= 11
  */
 
 /* CPU frequency */
-#define I2C_FOSC            8000000UL
+#define I2C_FOSC            20000000UL
 
 /* I2C bus frequency in Hz */
 #define I2C_FREQUENCY       100000UL

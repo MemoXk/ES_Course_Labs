@@ -4,6 +4,7 @@
 #include "ULTRASONIC_private.h"
 #include "ULTRASONIC_config.h"
 #include "../../SERVICES/STD_TYPES.h"
+#include "../../MCAL/TIMER_1/TIMER_1_Interface.h"
 
 /*
  * Configure all TRIG pins as output (LOW) and all ECHO pins as input.
@@ -15,7 +16,7 @@ void ULTRASONIC_Init(void);
  * Trigger one measurement on the selected sensor and return distance in cm.
  * sensor_id: ULTRASONIC_FRONT / BACK / LEFT / RIGHT
  * Returns ULTRASONIC_NO_OBJ (999) if no echo received within range.
- * Uses Timer1 internally — do not use Timer1 elsewhere while calling this.
+ * Uses MCAL Timer1 internally; do not share Timer1 while measuring.
  */
 u16 ULTRASONIC_GetDistance(u8 sensor_id);
 

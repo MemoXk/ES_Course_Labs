@@ -3,30 +3,10 @@
 
 #include "../../SERVICES/STD_TYPES.h"
 
-/* ---- Timer1 SFRs (used for echo pulse-width measurement) ---- */
-#ifndef TMR1L
-#define TMR1L   (*(volatile u8*)0x0E)
-#endif
-
-#ifndef TMR1H
-#define TMR1H   (*(volatile u8*)0x0F)
-#endif
-
-#ifndef T1CON
-#define T1CON   (*(volatile u8*)0x10)
-#endif
-
 /*
- * T1CON setup @ 20 MHz:
- *   TMR1CS = 0  (internal clock, Fosc/4 = 5 MHz)
- *   T1CKPS = 01 (prescaler 1:2)  → tick = 0.4 µs
- *   TMR1ON = 1
- *
- *   Bit layout: [7:6]=0, [5:4]=T1CKPS, [3]=T1OSCEN, [2]=T1SYNC, [1]=TMR1CS, [0]=TMR1ON
- *   Value: 0b00010001 = 0x11
+ * Timer1 setup @ 20 MHz is owned by MCAL/TIMER_1:
+ *   internal clock Fosc/4 = 5 MHz, prescaler 1:2 -> tick = 0.4 us.
  */
-#define T1CON_START     0x11u   /* prescaler 1:2, internal, ON  */
-#define T1CON_STOP      0x10u   /* same but OFF                 */
 
 /*
  * Distance formula (prescaler 1:2 @ 20 MHz):

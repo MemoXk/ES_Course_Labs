@@ -2,11 +2,11 @@
 #define ADC_CONFIG_H
 
 /*
- * ADC Configuration for PIC16F877A @ 8 MHz
+ * ADC Configuration for PIC16F877A @ 20 MHz
  *
  * Clock: Fosc/32 (PIC16F877A has only Fosc/2, /8, /32, or internal RC)
- *   @ 8 MHz this is faster than @ 4 MHz with the same divisor; Tad still
- *   meets the typical ≥1.6 µs requirement. Use ADC_CLK_FRC if you need a
+ *   @ 20 MHz this gives Tad = 1.6 us, which meets the typical minimum.
+ *   Use ADC_CLK_FRC if you need a
  *   fixed conversion clock independent of Fosc.
  * Result format: right-justified (10-bit in ADRESH:ADRESL)
  * Port config: all analog inputs enabled (AN0–AN7)

@@ -2,8 +2,8 @@
 #define GPIO_PRIVATE_H
 
 /* Register Definitions for PIC16F877A
- * #ifndef guards let MikroC's built-in SFR definitions take precedence.
- * MikroC handles bank switching internally for bank-1 registers (TRIS, etc.).
+ * #ifndef guards let XC8's device headers or other driver SFR definitions
+ * take precedence when they are already available.
  */
 
 #ifndef TRISA
