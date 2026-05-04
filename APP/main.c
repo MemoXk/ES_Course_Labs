@@ -3,7 +3,7 @@
  * Compiler: MPLAB X + XC8
  *
  * Active test: UART manual motor control.
- *   Receives F/B/L/R/S commands from Raspberry Pi (via PL011/ttyAMA0)
+ *   Receives F/B/L/R/S commands from Raspberry Pi (via /dev/serial0)
  *   and drives the L298N motors at 65% PWM.
  *   Echoes ACK after each command and sends a heartbeat counter.
  *
@@ -18,8 +18,7 @@
  * Pi side requires:
  *   /boot/firmware/config.txt: enable_uart=1, dtoverlay=disable-bt
  *   sudo systemctl disable hciuart && reboot
- *   /dev/serial0 -> /dev/ttyAMA0 (the PL011, NOT Mini UART)
- *   app.py uses SERIAL_PORT = "/dev/ttyAMA0"
+ *   app.py defaults to /dev/serial0; override with CAR_SERIAL_PORT if needed.
  */
 
 // CONFIG

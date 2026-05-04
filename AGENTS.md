@@ -67,6 +67,16 @@ Wiring:
 - `RC6/TX`, `RC7/RX` -> Raspberry Pi UART.
 - `RB0` -> heartbeat LED.
 
+## Test-Response Preference
+
+When describing a generated hex or a firmware/Pi change, always include:
+
+- Expected runtime behavior.
+- Concrete next test steps.
+- Visible/logged success signs.
+
+Assume wiring and components are correct unless software evidence points elsewhere. Start debugging from firmware state, UART protocol, Pi service settings, and command/ACK flow.
+
 ## Known Cleanup Backlog
 
 Keep these clean during future edits:
