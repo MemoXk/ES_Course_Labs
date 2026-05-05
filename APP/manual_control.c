@@ -107,8 +107,8 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: three quick flashes after reset. */
-    for(n = 0; n < 3U; n++)
+    /* New-hex visual signature: four quick flashes after reset. */
+    for(n = 0; n < 4U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -141,12 +141,12 @@ void MANUAL_CONTROL_Test(void)
         }
 
         /* Heartbeat: 10 x 100 ms = ~1 s per HB message.
-         * LED gives two short ON pulses near the start of each second.
+         * LED gives one long ON pulse near the start of each second.
          * We also poll RX inside the delay so commands are
          * acted on within 100 ms of arrival.               */
         for(i = 0; i < 10U; i++)
         {
-            if((i == 0U) || (i == 2U))
+            if((i == 0U) || (i == 1U) || (i == 2U))
             {
                 GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
             }
