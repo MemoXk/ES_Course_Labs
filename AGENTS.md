@@ -74,6 +74,7 @@ When describing a generated hex or a firmware/Pi change, always include:
 - Expected runtime behavior.
 - Concrete next test steps.
 - Visible/logged success signs.
+- Before every firmware hex build, change RB0 LED behavior to a new unique visible signature and tell the user exactly what changed, so they can confirm the newest hex was programmed.
 
 Assume wiring and components are correct unless software evidence points elsewhere. Start debugging from firmware state, UART protocol, Pi service settings, and command/ACK flow.
 
