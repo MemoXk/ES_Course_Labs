@@ -4,11 +4,6 @@
 
 #include "../../SERVICES/BIT_MATH.h"
 
-static u8 gpio_porta_latch = GPIO_PORTA_INIT_VAL;
-static u8 gpio_portb_latch = GPIO_PORTB_INIT_VAL;
-static u8 gpio_portc_latch = GPIO_PORTC_INIT_VAL;
-static u8 gpio_portd_latch = GPIO_PORTD_INIT_VAL;
-static u8 gpio_porte_latch = GPIO_PORTE_INIT_VAL;
 
 void GPIO_SetPinDirection(u8 Port, u8 Pin, u8 Direction)
 {
@@ -61,42 +56,37 @@ void GPIO_SetPinValue(u8 Port, u8 Pin, u8 Value)
     {
         case GPIO_PORTA:
             if(Value == GPIO_HIGH)
-                SET_BIT(gpio_porta_latch, Pin);
+                SET_BIT(PORTA, Pin);
             else
-                CLR_BIT(gpio_porta_latch, Pin);
-            PORTA = gpio_porta_latch;
+                CLR_BIT(PORTA, Pin);
         break;
 
         case GPIO_PORTB:
             if(Value == GPIO_HIGH)
-                SET_BIT(gpio_portb_latch, Pin);
+                SET_BIT(PORTB, Pin);
             else
-                CLR_BIT(gpio_portb_latch, Pin);
-            PORTB = gpio_portb_latch;
+                CLR_BIT(PORTB, Pin);
         break;
 
         case GPIO_PORTC:
             if(Value == GPIO_HIGH)
-                SET_BIT(gpio_portc_latch, Pin);
+                SET_BIT(PORTC, Pin);
             else
-                CLR_BIT(gpio_portc_latch, Pin);
-            PORTC = gpio_portc_latch;
+                CLR_BIT(PORTC, Pin);
         break;
 
         case GPIO_PORTD:
             if(Value == GPIO_HIGH)
-                SET_BIT(gpio_portd_latch, Pin);
+                SET_BIT(PORTD, Pin);
             else
-                CLR_BIT(gpio_portd_latch, Pin);
-            PORTD = gpio_portd_latch;
+                CLR_BIT(PORTD, Pin);
         break;
 
         case GPIO_PORTE:
             if(Value == GPIO_HIGH)
-                SET_BIT(gpio_porte_latch, Pin);
+                SET_BIT(PORTE, Pin);
             else
-                CLR_BIT(gpio_porte_latch, Pin);
-            PORTE = gpio_porte_latch;
+                CLR_BIT(PORTE, Pin);
         break;
 
         default:
@@ -140,21 +130,15 @@ u8 GPIO_GetPinValue(u8 Port, u8 Pin)
 
 void GPIO_Init(void)
 {
-    gpio_porta_latch = GPIO_PORTA_INIT_VAL;
-    gpio_portb_latch = GPIO_PORTB_INIT_VAL;
-    gpio_portc_latch = GPIO_PORTC_INIT_VAL;
-    gpio_portd_latch = GPIO_PORTD_INIT_VAL;
-    gpio_porte_latch = GPIO_PORTE_INIT_VAL;
-
     TRISA = GPIO_PORTA_DIR;
     TRISB = GPIO_PORTB_DIR;
     TRISC = GPIO_PORTC_DIR;
     TRISD = GPIO_PORTD_DIR;
     TRISE = GPIO_PORTE_DIR;
 
-    PORTA = gpio_porta_latch;
-    PORTB = gpio_portb_latch;
-    PORTC = gpio_portc_latch;
-    PORTD = gpio_portd_latch;
-    PORTE = gpio_porte_latch;
+    PORTA = GPIO_PORTA_INIT_VAL;
+    PORTB = GPIO_PORTB_INIT_VAL;
+    PORTC = GPIO_PORTC_INIT_VAL;
+    PORTD = GPIO_PORTD_INIT_VAL;
+    PORTE = GPIO_PORTE_INIT_VAL;
 }
