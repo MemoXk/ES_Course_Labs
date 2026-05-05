@@ -108,8 +108,8 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: nine quick flashes after reset. */
-    for(n = 0; n < 9U; n++)
+    /* New-hex visual signature: eleven quick flashes after reset. */
+    for(n = 0; n < 11U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -120,7 +120,7 @@ void MANUAL_CONTROL_Test(void)
 
     /* Motors + PWM */
     MOTOR_Init();
-    ULTRASONIC_Init();
+    ULTRASONIC_InitSensor(ULTRASONIC_FRONT);
     PWM_Init();
     PWM_SetDutyCycle(DRIVE_DUTY);
     PWM_Start();
@@ -143,12 +143,12 @@ void MANUAL_CONTROL_Test(void)
         }
 
         /* Heartbeat: 10 x 100 ms = ~1 s per HB message.
-         * LED gives one short ON pulse each second.
+         * LED gives two short ON pulses each second.
          * We also poll RX inside the delay so commands are
          * acted on within 100 ms of arrival.               */
         for(i = 0; i < 10U; i++)
         {
-            if(i == 0U)
+            if((i == 0U) || (i == 2U))
             {
                 GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
             }
@@ -173,11 +173,6 @@ void MANUAL_CONTROL_Test(void)
         {
             uart_write_str("US:F=");
             uart_write_u16(ULTRASONIC_GetDistance(ULTRASONIC_FRONT));
-            if(UART_RX_IsReady()) { process_cmd(UART_RX_GetByte()); }
-            __delay_ms(80);
-
-            uart_write_str(",B=");
-            uart_write_u16(ULTRASONIC_GetDistance(ULTRASONIC_BACK));
             uart_write_str("\r\n");
         }
     }

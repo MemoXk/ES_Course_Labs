@@ -73,6 +73,20 @@ void ULTRASONIC_Init(void)
     GPIO_SetPinDirection(ULTRASONIC_EXTRA_ECHO_PORT, ULTRASONIC_EXTRA_ECHO_PIN, GPIO_INPUT);
 }
 
+void ULTRASONIC_InitSensor(u8 sensor_id)
+{
+    u8 trig_port, trig_pin, echo_port, echo_pin;
+
+    if(pin_lookup(sensor_id, &trig_port, &trig_pin, &echo_port, &echo_pin) != 0u)
+    {
+        return;
+    }
+
+    GPIO_SetPinDirection(trig_port, trig_pin, GPIO_OUTPUT);
+    GPIO_SetPinValue(trig_port, trig_pin, GPIO_LOW);
+    GPIO_SetPinDirection(echo_port, echo_pin, GPIO_INPUT);
+}
+
 /* =========================================================
    ULTRASONIC_GetDistance
    Returns distance in cm, or ULTRASONIC_NO_OBJ if no echo.

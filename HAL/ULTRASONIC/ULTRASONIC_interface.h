@@ -13,6 +13,12 @@
 void ULTRASONIC_Init(void);
 
 /*
+ * Configure only one sensor's TRIG/ECHO pins.
+ * Use this for staged hardware bring-up to avoid driving unused sensors.
+ */
+void ULTRASONIC_InitSensor(u8 sensor_id);
+
+/*
  * Trigger one measurement on the selected sensor and return distance in cm.
  * sensor_id: ULTRASONIC_FRONT / BACK / LEFT / RIGHT
  * Returns ULTRASONIC_NO_OBJ (999) if no echo received within range.
