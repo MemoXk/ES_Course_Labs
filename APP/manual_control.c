@@ -33,10 +33,18 @@
 
 #define HB_PORT      GPIO_PORTB
 #define HB_PIN       GPIO_PIN0
-#define DIAG_TRIG_PORT GPIO_PORTB
-#define DIAG_TRIG_PIN  GPIO_PIN1
-#define DIAG_ECHO_PORT GPIO_PORTB
-#define DIAG_ECHO_PIN  GPIO_PIN2
+#define FRONT_TRIG_PORT GPIO_PORTB
+#define FRONT_TRIG_PIN  GPIO_PIN1
+#define FRONT_ECHO_PORT GPIO_PORTB
+#define FRONT_ECHO_PIN  GPIO_PIN2
+#define BACK_TRIG_PORT  GPIO_PORTB
+#define BACK_TRIG_PIN   GPIO_PIN3
+#define BACK_ECHO_PORT  GPIO_PORTB
+#define BACK_ECHO_PIN   GPIO_PIN4
+#define LEFT_TRIG_PORT  GPIO_PORTB
+#define LEFT_TRIG_PIN   GPIO_PIN5
+#define LEFT_ECHO_PORT  GPIO_PORTB
+#define LEFT_ECHO_PIN   GPIO_PIN6
 #define DRIVE_DUTY   65U     /* PWM duty cycle for motor enable */
 #define US_TIMEOUT_TICKS 60000U /* Timer1 1:2 @ 20 MHz = 0.4 us/tick, 24 ms */
 #define US_MIN_WIDTH_TICKS 145U /* about 1 cm; below this is a false/glitch pulse */
@@ -49,8 +57,11 @@
 static void process_cmd(u8 byte);
 static void uart_write_str(const char* s);
 static void uart_write_u16(u16 v);
-static u16 front_ultrasonic_cm(u8* status, u16* pulse_ticks);
-static u16 front_filtered_cm(u8* valid_count);
+static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
+                         u8* status, u16* pulse_ticks);
+static u16 ultrasonic_filtered_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
+                                  u8* valid_count);
+static void ultrasonic_init_sensor(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin);
 
 /* =================================================================
  *  Command handler — called from main loop only, never from ISR
@@ -107,7 +118,8 @@ static void uart_write_u16(u16 v)
     }
 }
 
-static u16 front_ultrasonic_cm(u8* status, u16* pulse_ticks)
+static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
+                         u8* status, u16* pulse_ticks)
 {
     u16 width_ticks = 0;
 
@@ -116,7 +128,7 @@ static u16 front_ultrasonic_cm(u8* status, u16* pulse_ticks)
 
     TIMER1_Reset();
     TIMER1_Start();
-    while(GPIO_GetPinValue(DIAG_ECHO_PORT, DIAG_ECHO_PIN) == GPIO_HIGH)
+    while(GPIO_GetPinValue(echo_port, echo_pin) == GPIO_HIGH)
     {
         if(TIMER1_GetValue() >= US_TIMEOUT_TICKS)
         {
@@ -127,15 +139,15 @@ static u16 front_ultrasonic_cm(u8* status, u16* pulse_ticks)
     }
     TIMER1_Stop();
 
-    GPIO_SetPinValue(DIAG_TRIG_PORT, DIAG_TRIG_PIN, GPIO_LOW);
+    GPIO_SetPinValue(trig_port, trig_pin, GPIO_LOW);
     __delay_us(2);
-    GPIO_SetPinValue(DIAG_TRIG_PORT, DIAG_TRIG_PIN, GPIO_HIGH);
+    GPIO_SetPinValue(trig_port, trig_pin, GPIO_HIGH);
     __delay_us(10);
-    GPIO_SetPinValue(DIAG_TRIG_PORT, DIAG_TRIG_PIN, GPIO_LOW);
+    GPIO_SetPinValue(trig_port, trig_pin, GPIO_LOW);
 
     TIMER1_Reset();
     TIMER1_Start();
-    while(GPIO_GetPinValue(DIAG_ECHO_PORT, DIAG_ECHO_PIN) == GPIO_LOW)
+    while(GPIO_GetPinValue(echo_port, echo_pin) == GPIO_LOW)
     {
         if(TIMER1_GetValue() >= US_TIMEOUT_TICKS)
         {
@@ -146,7 +158,7 @@ static u16 front_ultrasonic_cm(u8* status, u16* pulse_ticks)
     }
 
     TIMER1_Reset();
-    while(GPIO_GetPinValue(DIAG_ECHO_PORT, DIAG_ECHO_PIN) == GPIO_HIGH)
+    while(GPIO_GetPinValue(echo_port, echo_pin) == GPIO_HIGH)
     {
         width_ticks = TIMER1_GetValue();
         if(width_ticks >= US_TIMEOUT_TICKS)
@@ -171,7 +183,8 @@ static u16 front_ultrasonic_cm(u8* status, u16* pulse_ticks)
     return (u16)(((u32)width_ticks + 72UL) / 145UL);
 }
 
-static u16 front_filtered_cm(u8* valid_count)
+static u16 ultrasonic_filtered_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
+                                  u8* valid_count)
 {
     u16 samples[US_SAMPLE_COUNT];
     u16 sample_cm;
@@ -184,15 +197,7 @@ static u16 front_filtered_cm(u8* valid_count)
 
     for(i = 0; i < US_SAMPLE_COUNT; i++)
     {
-        sample_cm = front_ultrasonic_cm(&status, &pulse_ticks);
-
-        uart_write_str("DIAG:R=");
-        uart_write_u16(sample_cm);
-        uart_write_str(",S=");
-        UART_Write(status);
-        uart_write_str(",W=");
-        uart_write_u16(pulse_ticks);
-        uart_write_str("\r\n");
+        sample_cm = ultrasonic_cm(trig_port, trig_pin, echo_port, echo_pin, &status, &pulse_ticks);
 
         if(status == 'O' && sample_cm != US_NO_ECHO_CM && sample_cm <= US_MAX_VALID_CM)
         {
@@ -225,6 +230,13 @@ static u16 front_filtered_cm(u8* valid_count)
     return samples[count / 2U];
 }
 
+static void ultrasonic_init_sensor(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin)
+{
+    GPIO_SetPinDirection(trig_port, trig_pin, GPIO_OUTPUT);
+    GPIO_SetPinValue(trig_port, trig_pin, GPIO_LOW);
+    GPIO_SetPinDirection(echo_port, echo_pin, GPIO_INPUT);
+}
+
 /* =================================================================
  *  Public entry — main() calls this
  * ================================================================= */
@@ -232,16 +244,20 @@ void MANUAL_CONTROL_Test(void)
 {
     u16 hb_tick = 0;
     u16 front_cm;
+    u16 back_cm;
+    u16 left_cm;
     u8  i;
     u8  n;
-    u8  valid_count;
+    u8  front_valid;
+    u8  back_valid;
+    u8  left_valid;
 
     /* Heartbeat LED on RB0 */
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: two quick flashes, two slow flashes, two quick flashes. */
-    for(n = 0; n < 2U; n++)
+    /* New-hex visual signature: six quick flashes, one long flash, three quick flashes. */
+    for(n = 0; n < 6U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -253,14 +269,7 @@ void MANUAL_CONTROL_Test(void)
     __delay_ms(700);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
     __delay_ms(250);
-    for(n = 0; n < 2U; n++)
-    {
-        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-        __delay_ms(400);
-        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
-        __delay_ms(250);
-    }
-    for(n = 0; n < 2U; n++)
+    for(n = 0; n < 3U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -276,10 +285,10 @@ void MANUAL_CONTROL_Test(void)
     PWM_Start();
     TIMER1_Init();
 
-    /* Safe HC-SR04 timing: ECHO is input, TRIG is high for only 10 us. */
-    GPIO_SetPinDirection(DIAG_TRIG_PORT, DIAG_TRIG_PIN, GPIO_OUTPUT);
-    GPIO_SetPinValue(DIAG_TRIG_PORT, DIAG_TRIG_PIN, GPIO_LOW);
-    GPIO_SetPinDirection(DIAG_ECHO_PORT, DIAG_ECHO_PIN, GPIO_INPUT);
+    /* Safe HC-SR04 timing: ECHO pins are inputs, TRIG is high for only 10 us. */
+    ultrasonic_init_sensor(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN);
+    ultrasonic_init_sensor(BACK_TRIG_PORT,  BACK_TRIG_PIN,  BACK_ECHO_PORT,  BACK_ECHO_PIN);
+    ultrasonic_init_sensor(LEFT_TRIG_PORT,  LEFT_TRIG_PIN,  LEFT_ECHO_PORT,  LEFT_ECHO_PIN);
 
     /* UART: TX first (sets SPEN + SPBRG + BRGH),
      * then full RX init (CREN + RCIE + PEIE + GIE).
@@ -289,7 +298,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:FRONT_SAFE_MEDIAN_10US_RB1_RB2\r\n");
+    uart_write_str("DIAG:US3_SAFE_MEDIAN_F_RB1_B_RB3_L_RB5\r\n");
 
     while(1)
     {
@@ -300,7 +309,9 @@ void MANUAL_CONTROL_Test(void)
         }
 
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-        front_cm = front_filtered_cm(&valid_count);
+        front_cm = ultrasonic_filtered_cm(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN, &front_valid);
+        back_cm = ultrasonic_filtered_cm(BACK_TRIG_PORT, BACK_TRIG_PIN, BACK_ECHO_PORT, BACK_ECHO_PIN, &back_valid);
+        left_cm = ultrasonic_filtered_cm(LEFT_TRIG_PORT, LEFT_TRIG_PIN, LEFT_ECHO_PORT, LEFT_ECHO_PIN, &left_valid);
         __delay_ms(30);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
@@ -311,12 +322,20 @@ void MANUAL_CONTROL_Test(void)
 
         uart_write_str("US:F=");
         uart_write_u16(front_cm);
+        uart_write_str(",B=");
+        uart_write_u16(back_cm);
+        uart_write_str(",L=");
+        uart_write_u16(left_cm);
         uart_write_str("\r\n");
-        uart_write_str("DIAG:MED:N=");
-        uart_write_u16(valid_count);
+        uart_write_str("DIAG:MED:F=");
+        uart_write_u16(front_valid);
+        uart_write_str(",B=");
+        uart_write_u16(back_valid);
+        uart_write_str(",L=");
+        uart_write_u16(left_valid);
         uart_write_str("\r\n");
 
-        for(i = 0; i < 5U; i++)
+        for(i = 0; i < 3U; i++)
         {
             __delay_ms(100);
             if(UART_RX_IsReady())
