@@ -51,6 +51,7 @@
 #define US_SAMPLE_COUNT   5U
 #define US_MIN_VALID      3U
 #define US_MAX_VALID_CM   400U
+#define US_INTER_PING_MS  90U
 #define US_NO_ECHO_CM    999U
 
 /* ---- forward decls ---- */
@@ -59,9 +60,10 @@ static void uart_write_str(const char* s);
 static void uart_write_u16(u16 v);
 static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
                          u8* status, u16* pulse_ticks);
-static u16 ultrasonic_filtered_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
-                                  u8* valid_count);
+static void add_valid_sample(u16 samples[], u8* count, u16 sample_cm, u8 status);
+static u16 median_or_no_echo(u16 samples[], u8 count);
 static void ultrasonic_init_sensor(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin);
+static void delay_with_cmd_checks(u8 ticks_10ms);
 
 /* =================================================================
  *  Command handler — called from main loop only, never from ISR
@@ -183,32 +185,21 @@ static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
     return (u16)(((u32)width_ticks + 72UL) / 145UL);
 }
 
-static u16 ultrasonic_filtered_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
-                                  u8* valid_count)
+static void add_valid_sample(u16 samples[], u8* count, u16 sample_cm, u8 status)
 {
-    u16 samples[US_SAMPLE_COUNT];
-    u16 sample_cm;
-    u16 pulse_ticks;
+    if(status == 'O' && sample_cm != US_NO_ECHO_CM && sample_cm <= US_MAX_VALID_CM)
+    {
+        samples[*count] = sample_cm;
+        (*count)++;
+    }
+}
+
+static u16 median_or_no_echo(u16 samples[], u8 count)
+{
     u16 temp;
-    u8  status;
-    u8  count = 0;
     u8  i;
     u8  j;
 
-    for(i = 0; i < US_SAMPLE_COUNT; i++)
-    {
-        sample_cm = ultrasonic_cm(trig_port, trig_pin, echo_port, echo_pin, &status, &pulse_ticks);
-
-        if(status == 'O' && sample_cm != US_NO_ECHO_CM && sample_cm <= US_MAX_VALID_CM)
-        {
-            samples[count] = sample_cm;
-            count++;
-        }
-
-        __delay_ms(70);
-    }
-
-    *valid_count = count;
     if(count < US_MIN_VALID)
     {
         return US_NO_ECHO_CM;
@@ -237,39 +228,54 @@ static void ultrasonic_init_sensor(u8 trig_port, u8 trig_pin, u8 echo_port, u8 e
     GPIO_SetPinDirection(echo_port, echo_pin, GPIO_INPUT);
 }
 
+static void delay_with_cmd_checks(u8 ticks_10ms)
+{
+    u8 i;
+
+    for(i = 0; i < ticks_10ms; i++)
+    {
+        __delay_ms(10);
+        if(UART_RX_IsReady())
+        {
+            process_cmd(UART_RX_GetByte());
+        }
+    }
+}
+
 /* =================================================================
  *  Public entry — main() calls this
  * ================================================================= */
 void MANUAL_CONTROL_Test(void)
 {
     u16 hb_tick = 0;
+    u16 front_samples[US_SAMPLE_COUNT];
+    u16 back_samples[US_SAMPLE_COUNT];
+    u16 left_samples[US_SAMPLE_COUNT];
     u16 front_cm;
     u16 back_cm;
     u16 left_cm;
+    u16 sample_cm;
+    u16 pulse_ticks;
     u8  i;
     u8  n;
     u8  front_valid;
     u8  back_valid;
     u8  left_valid;
+    u8  status;
 
     /* Heartbeat LED on RB0 */
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: six quick flashes, one long flash, three quick flashes. */
-    for(n = 0; n < 6U; n++)
+    /* New-hex visual signature: three slow flashes, six quick flashes. */
+    for(n = 0; n < 3U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-        __delay_ms(80);
+        __delay_ms(350);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
-        __delay_ms(120);
+        __delay_ms(250);
     }
-    __delay_ms(250);
-    GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-    __delay_ms(700);
-    GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
-    __delay_ms(250);
-    for(n = 0; n < 3U; n++)
+    for(n = 0; n < 6U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -298,7 +304,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:US3_SAFE_MEDIAN_F_RB1_B_RB3_L_RB5\r\n");
+    uart_write_str("DIAG:US3_ROUND_MEDIAN_F_RB1_B_RB3_L_RB5\r\n");
 
     while(1)
     {
@@ -309,9 +315,30 @@ void MANUAL_CONTROL_Test(void)
         }
 
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-        front_cm = ultrasonic_filtered_cm(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN, &front_valid);
-        back_cm = ultrasonic_filtered_cm(BACK_TRIG_PORT, BACK_TRIG_PIN, BACK_ECHO_PORT, BACK_ECHO_PIN, &back_valid);
-        left_cm = ultrasonic_filtered_cm(LEFT_TRIG_PORT, LEFT_TRIG_PIN, LEFT_ECHO_PORT, LEFT_ECHO_PIN, &left_valid);
+
+        front_valid = 0;
+        back_valid = 0;
+        left_valid = 0;
+
+        for(i = 0; i < US_SAMPLE_COUNT; i++)
+        {
+            sample_cm = ultrasonic_cm(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN, &status, &pulse_ticks);
+            add_valid_sample(front_samples, &front_valid, sample_cm, status);
+            delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
+
+            sample_cm = ultrasonic_cm(BACK_TRIG_PORT, BACK_TRIG_PIN, BACK_ECHO_PORT, BACK_ECHO_PIN, &status, &pulse_ticks);
+            add_valid_sample(back_samples, &back_valid, sample_cm, status);
+            delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
+
+            sample_cm = ultrasonic_cm(LEFT_TRIG_PORT, LEFT_TRIG_PIN, LEFT_ECHO_PORT, LEFT_ECHO_PIN, &status, &pulse_ticks);
+            add_valid_sample(left_samples, &left_valid, sample_cm, status);
+            delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
+        }
+
+        front_cm = median_or_no_echo(front_samples, front_valid);
+        back_cm = median_or_no_echo(back_samples, back_valid);
+        left_cm = median_or_no_echo(left_samples, left_valid);
+
         __delay_ms(30);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
@@ -335,7 +362,7 @@ void MANUAL_CONTROL_Test(void)
         uart_write_u16(left_valid);
         uart_write_str("\r\n");
 
-        for(i = 0; i < 3U; i++)
+        for(i = 0; i < 2U; i++)
         {
             __delay_ms(100);
             if(UART_RX_IsReady())
