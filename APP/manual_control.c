@@ -101,10 +101,21 @@ void MANUAL_CONTROL_Test(void)
 {
     u16 hb_tick = 0;
     u8  i;
+    u8  n;
 
     /* Heartbeat LED on RB0 */
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
+
+    /* New-hex visual signature: three quick flashes after reset. */
+    for(n = 0; n < 3U; n++)
+    {
+        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
+        __delay_ms(80);
+        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
+        __delay_ms(120);
+    }
+    __delay_ms(400);
 
     /* Motors + PWM */
     MOTOR_Init();
@@ -130,15 +141,21 @@ void MANUAL_CONTROL_Test(void)
         }
 
         /* Heartbeat: 10 x 100 ms = ~1 s per HB message.
-         * LED toggles every 100 ms (5 Hz flicker).
+         * LED gives two short ON pulses near the start of each second.
          * We also poll RX inside the delay so commands are
          * acted on within 100 ms of arrival.               */
         for(i = 0; i < 10U; i++)
         {
-            __delay_ms(100);
-            GPIO_SetPinValue(HB_PORT, HB_PIN,
-                             (i & 1U) ? GPIO_HIGH : GPIO_LOW);
+            if((i == 0U) || (i == 2U))
+            {
+                GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
+            }
+            else
+            {
+                GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
+            }
 
+            __delay_ms(100);
             if(UART_RX_IsReady())
             {
                 process_cmd(UART_RX_GetByte());
