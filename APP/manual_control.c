@@ -29,6 +29,7 @@
 #include "../MCAL/GPIO/GPIO_interface.h"
 #include "../HAL/MOTOR/MOTOR_interface.h"
 #include "../MCAL/PWM/PWM_Interface.h"
+#include "../HAL/ULTRASONIC/ULTRASONIC_interface.h"
 
 #define HB_PORT      GPIO_PORTB
 #define HB_PIN       GPIO_PIN0
@@ -107,8 +108,8 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: four quick flashes after reset. */
-    for(n = 0; n < 4U; n++)
+    /* New-hex visual signature: five quick flashes after reset. */
+    for(n = 0; n < 5U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -119,6 +120,7 @@ void MANUAL_CONTROL_Test(void)
 
     /* Motors + PWM */
     MOTOR_Init();
+    ULTRASONIC_Init();
     PWM_Init();
     PWM_SetDutyCycle(DRIVE_DUTY);
     PWM_Start();
@@ -141,12 +143,12 @@ void MANUAL_CONTROL_Test(void)
         }
 
         /* Heartbeat: 10 x 100 ms = ~1 s per HB message.
-         * LED gives one long ON pulse near the start of each second.
+         * LED gives three short ON pulses near the start of each second.
          * We also poll RX inside the delay so commands are
          * acted on within 100 ms of arrival.               */
         for(i = 0; i < 10U; i++)
         {
-            if((i == 0U) || (i == 1U) || (i == 2U))
+            if((i == 0U) || (i == 2U) || (i == 4U))
             {
                 GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
             }
@@ -165,6 +167,22 @@ void MANUAL_CONTROL_Test(void)
         hb_tick++;
         uart_write_str("HB:");
         uart_write_u16(hb_tick);
+        uart_write_str("\r\n");
+
+        uart_write_str("US:F=");
+        uart_write_u16(ULTRASONIC_GetDistance(ULTRASONIC_FRONT));
+        if(UART_RX_IsReady()) { process_cmd(UART_RX_GetByte()); }
+
+        uart_write_str(",B=");
+        uart_write_u16(ULTRASONIC_GetDistance(ULTRASONIC_BACK));
+        if(UART_RX_IsReady()) { process_cmd(UART_RX_GetByte()); }
+
+        uart_write_str(",L=");
+        uart_write_u16(ULTRASONIC_GetDistance(ULTRASONIC_LEFT));
+        if(UART_RX_IsReady()) { process_cmd(UART_RX_GetByte()); }
+
+        uart_write_str(",R=");
+        uart_write_u16(ULTRASONIC_GetDistance(ULTRASONIC_RIGHT));
         uart_write_str("\r\n");
     }
 }

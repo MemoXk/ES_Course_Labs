@@ -66,6 +66,15 @@ Wiring:
 - `RC2` -> L298N enable using CCP1 PWM.
 - `RC6/TX`, `RC7/RX` -> Raspberry Pi UART.
 - `RB0` -> heartbeat LED.
+- Ultrasonic front: `RB1` TRIG, `RB2` ECHO.
+- Ultrasonic back: `RB3` TRIG, `RB4` ECHO.
+- Ultrasonic left: `RB5` TRIG, `RB6` ECHO.
+- Ultrasonic right: `RD4` TRIG, `RD5` ECHO.
+
+Live telemetry:
+
+- Ultrasonic distances stream as `US:F=<cm>,B=<cm>,L=<cm>,R=<cm>`.
+- `999` means no echo/no object in range.
 
 ## Test-Response Preference
 
