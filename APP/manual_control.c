@@ -40,6 +40,9 @@
 #define DRIVE_DUTY   65U     /* PWM duty cycle for motor enable */
 #define US_TIMEOUT_TICKS 60000U /* Timer1 1:2 @ 20 MHz = 0.4 us/tick, 24 ms */
 #define US_MIN_WIDTH_TICKS 145U /* about 1 cm; below this is a false/glitch pulse */
+#define US_SAMPLE_COUNT   5U
+#define US_MIN_VALID      3U
+#define US_MAX_VALID_CM   150U
 #define US_NO_ECHO_CM    999U
 
 /* ---- forward decls ---- */
@@ -47,6 +50,7 @@ static void process_cmd(u8 byte);
 static void uart_write_str(const char* s);
 static void uart_write_u16(u16 v);
 static u16 front_ultrasonic_cm(u8* status, u16* pulse_ticks);
+static u16 front_filtered_cm(u8* valid_count);
 
 /* =================================================================
  *  Command handler — called from main loop only, never from ISR
@@ -167,6 +171,60 @@ static u16 front_ultrasonic_cm(u8* status, u16* pulse_ticks)
     return (u16)(((u32)width_ticks + 72UL) / 145UL);
 }
 
+static u16 front_filtered_cm(u8* valid_count)
+{
+    u16 samples[US_SAMPLE_COUNT];
+    u16 sample_cm;
+    u16 pulse_ticks;
+    u16 temp;
+    u8  status;
+    u8  count = 0;
+    u8  i;
+    u8  j;
+
+    for(i = 0; i < US_SAMPLE_COUNT; i++)
+    {
+        sample_cm = front_ultrasonic_cm(&status, &pulse_ticks);
+
+        uart_write_str("DIAG:R=");
+        uart_write_u16(sample_cm);
+        uart_write_str(",S=");
+        UART_Write(status);
+        uart_write_str(",W=");
+        uart_write_u16(pulse_ticks);
+        uart_write_str("\r\n");
+
+        if(status == 'O' && sample_cm != US_NO_ECHO_CM && sample_cm <= US_MAX_VALID_CM)
+        {
+            samples[count] = sample_cm;
+            count++;
+        }
+
+        __delay_ms(70);
+    }
+
+    *valid_count = count;
+    if(count < US_MIN_VALID)
+    {
+        return US_NO_ECHO_CM;
+    }
+
+    for(i = 0; i < count; i++)
+    {
+        for(j = (u8)(i + 1U); j < count; j++)
+        {
+            if(samples[j] < samples[i])
+            {
+                temp = samples[i];
+                samples[i] = samples[j];
+                samples[j] = temp;
+            }
+        }
+    }
+
+    return samples[count / 2U];
+}
+
 /* =================================================================
  *  Public entry — main() calls this
  * ================================================================= */
@@ -174,30 +232,33 @@ void MANUAL_CONTROL_Test(void)
 {
     u16 hb_tick = 0;
     u16 front_cm;
-    u16 pulse_ticks;
     u8  i;
     u8  n;
-    u8  status;
+    u8  valid_count;
 
     /* Heartbeat LED on RB0 */
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: seven quick flashes, then two slow flashes. */
-    for(n = 0; n < 7U; n++)
+    /* New-hex visual signature: four quick flashes, one long flash, four quick flashes. */
+    for(n = 0; n < 4U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
         __delay_ms(120);
     }
-    __delay_ms(500);
-    for(n = 0; n < 2U; n++)
+    __delay_ms(250);
+    GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
+    __delay_ms(700);
+    GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
+    __delay_ms(250);
+    for(n = 0; n < 4U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-        __delay_ms(400);
+        __delay_ms(80);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
-        __delay_ms(250);
+        __delay_ms(120);
     }
     __delay_ms(300);
 
@@ -221,7 +282,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:FRONT_SAFE_TIMER1_10US_RB1_RB2\r\n");
+    uart_write_str("DIAG:FRONT_SAFE_MEDIAN_10US_RB1_RB2\r\n");
 
     while(1)
     {
@@ -232,7 +293,7 @@ void MANUAL_CONTROL_Test(void)
         }
 
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-        front_cm = front_ultrasonic_cm(&status, &pulse_ticks);
+        front_cm = front_filtered_cm(&valid_count);
         __delay_ms(30);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
@@ -244,13 +305,11 @@ void MANUAL_CONTROL_Test(void)
         uart_write_str("US:F=");
         uart_write_u16(front_cm);
         uart_write_str("\r\n");
-        uart_write_str("DIAG:SAFE:S=");
-        UART_Write(status);
-        uart_write_str(",W=");
-        uart_write_u16(pulse_ticks);
+        uart_write_str("DIAG:MED:N=");
+        uart_write_u16(valid_count);
         uart_write_str("\r\n");
 
-        for(i = 0; i < 8U; i++)
+        for(i = 0; i < 5U; i++)
         {
             __delay_ms(100);
             if(UART_RX_IsReady())
