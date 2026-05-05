@@ -39,9 +39,11 @@
 #define DRIVE_DUTY   65U     /* PWM duty cycle for motor enable */
 #define US_TIMEOUT_TICKS 3000U /* 3000 * 10 us = 30 ms */
 #define US_MIN_WIDTH_TICKS 12U /* reject tiny glitch pulses below ~2 cm */
-#define US_SAMPLE_COUNT   5U
+#define US_SAMPLE_COUNT   7U
 #define US_MIN_VALID      3U
-#define US_MAX_SPREAD_CM  20U
+#define US_CLUSTER_SIZE   3U
+#define US_MAX_SPREAD_CM  8U
+#define US_HOLD_CYCLES    5U
 #define US_NO_ECHO_CM    999U
 
 /* ---- forward decls ---- */
@@ -172,8 +174,10 @@ static u16 front_filtered_cm(u8* valid_count, u16* spread_cm)
     u16 sample_cm;
     u16 pulse_ticks;
     u16 temp;
+    u16 best_spread = 0xFFFFU;
     u8  status;
     u8  count = 0;
+    u8  best_start = 0;
     u8  i;
     u8  j;
 
@@ -219,13 +223,23 @@ static u16 front_filtered_cm(u8* valid_count, u16* spread_cm)
         }
     }
 
-    *spread_cm = (u16)(samples[count - 1U] - samples[0]);
+    for(i = 0; i <= (u8)(count - US_CLUSTER_SIZE); i++)
+    {
+        temp = (u16)(samples[i + (US_CLUSTER_SIZE - 1U)] - samples[i]);
+        if(temp < best_spread)
+        {
+            best_spread = temp;
+            best_start = i;
+        }
+    }
+
+    *spread_cm = best_spread;
     if(*spread_cm > US_MAX_SPREAD_CM)
     {
         return US_NO_ECHO_CM;
     }
 
-    return samples[count / 2U];
+    return samples[best_start + (US_CLUSTER_SIZE / 2U)];
 }
 
 /* =================================================================
@@ -235,17 +249,21 @@ void MANUAL_CONTROL_Test(void)
 {
     u16 hb_tick = 0;
     u16 front_cm;
+    u16 output_cm = US_NO_ECHO_CM;
+    u16 last_good_cm = US_NO_ECHO_CM;
     u16 spread_cm;
     u8  i;
     u8  n;
+    u8  held;
+    u8  hold_age = US_HOLD_CYCLES;
     u8  valid_count;
 
     /* Heartbeat LED on RB0 */
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: two long flashes, then four quick flashes. */
-    for(n = 0; n < 2U; n++)
+    /* New-hex visual signature: three long flashes, then three quick flashes. */
+    for(n = 0; n < 3U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(650);
@@ -253,7 +271,7 @@ void MANUAL_CONTROL_Test(void)
         __delay_ms(300);
     }
 
-    for(n = 0; n < 4U; n++)
+    for(n = 0; n < 3U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -281,7 +299,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:FRONT_FILTER_100US_RB1_RB2\r\n");
+    uart_write_str("DIAG:FRONT_CLUSTER_100US_RB1_RB2\r\n");
 
     while(1)
     {
@@ -296,18 +314,38 @@ void MANUAL_CONTROL_Test(void)
         __delay_ms(30);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
+        held = 0;
+        if(front_cm != US_NO_ECHO_CM)
+        {
+            output_cm = front_cm;
+            last_good_cm = front_cm;
+            hold_age = 0;
+        }
+        else if(last_good_cm != US_NO_ECHO_CM && hold_age < US_HOLD_CYCLES)
+        {
+            output_cm = last_good_cm;
+            hold_age++;
+            held = 1;
+        }
+        else
+        {
+            output_cm = US_NO_ECHO_CM;
+        }
+
         if(UART_RX_IsReady())
         {
             process_cmd(UART_RX_GetByte());
         }
 
         uart_write_str("US:F=");
-        uart_write_u16(front_cm);
+        uart_write_u16(output_cm);
         uart_write_str("\r\n");
         uart_write_str("DIAG:FILT:N=");
         uart_write_u16(valid_count);
         uart_write_str(",SP=");
         uart_write_u16(spread_cm);
+        uart_write_str(",H=");
+        uart_write_u16(held);
         uart_write_str("\r\n");
 
         for(i = 0; i < 6U; i++)
