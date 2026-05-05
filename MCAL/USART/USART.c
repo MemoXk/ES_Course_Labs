@@ -145,6 +145,8 @@ void UART_SetCallback(void (*Callback)(u8))
 
 void UART_ISR(void)
 {
+    u8 rx_byte;
+
     /* Recover from Overrun Error: toggle CREN to reset the receiver.
      * If OERR sets the hardware refuses further bytes until CREN is
      * cleared and re-enabled.                                         */
@@ -167,8 +169,10 @@ void UART_ISR(void)
      * filter the '\n' ISR fires ~1 ms after the command byte and
      * overwrites UART_rx_data before the main loop has a chance to
      * read it, so the loop always sees '\n' → default case → no ACK. */
-    UART_rx_data = RCREG;
-    if(UART_rx_data == '\r' || UART_rx_data == '\n') { return; }
+    rx_byte = RCREG;
+    if(rx_byte == '\r' || rx_byte == '\n') { return; }
+
+    UART_rx_data = rx_byte;
     UART_rx_ready = 1;
 }
 
