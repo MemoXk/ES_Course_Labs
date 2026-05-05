@@ -15,13 +15,13 @@
  */
 #define ULTRASONIC_TICKS_PER_CM     145U
 
-/* Stop measuring when Timer1 high byte exceeds this (≈ 400 cm) */
-#define ULTRASONIC_OVERFLOW_H       0xE3u
+/* Stop measuring when Timer1 high byte exceeds this (about 220 cm) */
+#define ULTRASONIC_OVERFLOW_H       0x7Du
 
 /* Return value when no echo is received */
 #define ULTRASONIC_NO_OBJ           999U
 
 /* Timeout counter waiting for echo to go HIGH */
-#define ULTRASONIC_ECHO_WAIT_MAX    30000U
+#define ULTRASONIC_ECHO_WAIT_MAX    8000U
 
 #endif
