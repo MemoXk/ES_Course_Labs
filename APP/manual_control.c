@@ -29,10 +29,13 @@
 #include "../MCAL/GPIO/GPIO_interface.h"
 #include "../HAL/MOTOR/MOTOR_interface.h"
 #include "../MCAL/PWM/PWM_Interface.h"
-#include "../HAL/ULTRASONIC/ULTRASONIC_interface.h"
 
 #define HB_PORT      GPIO_PORTB
 #define HB_PIN       GPIO_PIN0
+#define DIAG_TRIG_PORT GPIO_PORTB
+#define DIAG_TRIG_PIN  GPIO_PIN1
+#define DIAG_ECHO_PORT GPIO_PORTB
+#define DIAG_ECHO_PIN  GPIO_PIN2
 #define DRIVE_DUTY   65U     /* PWM duty cycle for motor enable */
 
 /* ---- forward decls ---- */
@@ -108,8 +111,8 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: eleven quick flashes after reset. */
-    for(n = 0; n < 11U; n++)
+    /* New-hex visual signature: twelve quick flashes after reset. */
+    for(n = 0; n < 12U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -120,10 +123,14 @@ void MANUAL_CONTROL_Test(void)
 
     /* Motors + PWM */
     MOTOR_Init();
-    ULTRASONIC_InitSensor(ULTRASONIC_FRONT);
     PWM_Init();
     PWM_SetDutyCycle(DRIVE_DUTY);
     PWM_Start();
+
+    /* Front ultrasonic pin diagnostic only: no distance math. */
+    GPIO_SetPinDirection(DIAG_TRIG_PORT, DIAG_TRIG_PIN, GPIO_OUTPUT);
+    GPIO_SetPinValue(DIAG_TRIG_PORT, DIAG_TRIG_PIN, GPIO_LOW);
+    GPIO_SetPinDirection(DIAG_ECHO_PORT, DIAG_ECHO_PIN, GPIO_INPUT);
 
     /* UART: TX first (sets SPEN + SPBRG + BRGH),
      * then full RX init (CREN + RCIE + PEIE + GIE).
@@ -133,6 +140,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
+    uart_write_str("DIAG:TRIG_RB1_ECHO_RB2\r\n");
 
     while(1)
     {
@@ -142,21 +150,25 @@ void MANUAL_CONTROL_Test(void)
             process_cmd(UART_RX_GetByte());
         }
 
-        /* Heartbeat: 10 x 100 ms = ~1 s per HB message.
-         * LED gives two short ON pulses each second.
-         * We also poll RX inside the delay so commands are
-         * acted on within 100 ms of arrival.               */
-        for(i = 0; i < 10U; i++)
+        GPIO_SetPinValue(DIAG_TRIG_PORT, DIAG_TRIG_PIN, GPIO_HIGH);
+        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
+        __delay_ms(250);
+        if(UART_RX_IsReady())
         {
-            if((i == 0U) || (i == 2U))
-            {
-                GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-            }
-            else
-            {
-                GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
-            }
+            process_cmd(UART_RX_GetByte());
+        }
+        uart_write_str("PIN:T=1,E=");
+        uart_write_u16(GPIO_GetPinValue(DIAG_ECHO_PORT, DIAG_ECHO_PIN));
+        uart_write_str("\r\n");
 
+        GPIO_SetPinValue(DIAG_TRIG_PORT, DIAG_TRIG_PIN, GPIO_LOW);
+        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
+        uart_write_str("PIN:T=0,E=");
+        uart_write_u16(GPIO_GetPinValue(DIAG_ECHO_PORT, DIAG_ECHO_PIN));
+        uart_write_str("\r\n");
+
+        for(i = 0; i < 7U; i++)
+        {
             __delay_ms(100);
             if(UART_RX_IsReady())
             {
@@ -168,12 +180,5 @@ void MANUAL_CONTROL_Test(void)
         uart_write_str("HB:");
         uart_write_u16(hb_tick);
         uart_write_str("\r\n");
-
-        if((hb_tick & 1U) == 0U)
-        {
-            uart_write_str("US:F=");
-            uart_write_u16(ULTRASONIC_GetDistance(ULTRASONIC_FRONT));
-            uart_write_str("\r\n");
-        }
     }
 }
