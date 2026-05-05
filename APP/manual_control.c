@@ -42,7 +42,7 @@
 #define US_MIN_WIDTH_TICKS 145U /* about 1 cm; below this is a false/glitch pulse */
 #define US_SAMPLE_COUNT   5U
 #define US_MIN_VALID      3U
-#define US_MAX_VALID_CM   150U
+#define US_MAX_VALID_CM   400U
 #define US_NO_ECHO_CM    999U
 
 /* ---- forward decls ---- */
@@ -240,8 +240,8 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: four quick flashes, one long flash, four quick flashes. */
-    for(n = 0; n < 4U; n++)
+    /* New-hex visual signature: two quick flashes, two slow flashes, two quick flashes. */
+    for(n = 0; n < 2U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -253,7 +253,14 @@ void MANUAL_CONTROL_Test(void)
     __delay_ms(700);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
     __delay_ms(250);
-    for(n = 0; n < 4U; n++)
+    for(n = 0; n < 2U; n++)
+    {
+        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
+        __delay_ms(400);
+        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
+        __delay_ms(250);
+    }
+    for(n = 0; n < 2U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
