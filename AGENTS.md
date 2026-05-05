@@ -66,6 +66,8 @@ Wiring:
 - `RC2` -> L298N enable using CCP1 PWM.
 - `RC6/TX`, `RC7/RX` -> Raspberry Pi UART.
 - `RB0` -> heartbeat LED.
+- Active two-sensor ultrasonic test: front `RB1` TRIG / `RB2` ECHO, back `RB3` TRIG / `RB4` ECHO.
+- Active ultrasonic telemetry: `US:F=<cm>,B=<cm>`, where `999` means no echo.
 
 ## Test-Response Preference
 
