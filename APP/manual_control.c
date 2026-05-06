@@ -252,23 +252,28 @@ static void delay_with_cmd_checks(u8 ticks_10ms)
 void MANUAL_CONTROL_Test(void)
 {
     u16 hb_tick = 0;
+    u16 front_samples[US_SAMPLE_COUNT];
     u16 back_samples[US_SAMPLE_COUNT];
+    u16 front_cm;
     u16 back_cm;
     u16 sample_cm;
     u16 pulse_ticks;
+    u16 front_last_ticks = 0;
     u16 back_last_ticks = 0;
     u8  i;
     u8  n;
+    u8  front_valid;
     u8  back_valid;
     u8  status;
+    u8  front_last_status = 'N';
     u8  back_last_status = 'N';
 
     /* Heartbeat LED on RB0 */
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: two long flashes, four quick flashes. */
-    for(n = 0; n < 2U; n++)
+    /* New-hex visual signature: three long flashes, four quick flashes. */
+    for(n = 0; n < 3U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(700);
@@ -291,14 +296,12 @@ void MANUAL_CONTROL_Test(void)
     PWM_Start();
     TIMER1_Init();
 
-    /* Back sensor on known-good front pins: RB1 is triggered, RB2 is measured. */
+    /* Front+Back ultrasonic test: RB1/RB2 and RB3/RB4 only. */
     GPIO_SetPinDirection(LEFT_TRIG_PORT, LEFT_TRIG_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(LEFT_TRIG_PORT, LEFT_TRIG_PIN, GPIO_LOW);
-    GPIO_SetPinDirection(BACK_TRIG_PORT, BACK_TRIG_PIN, GPIO_OUTPUT);
-    GPIO_SetPinValue(BACK_TRIG_PORT, BACK_TRIG_PIN, GPIO_LOW);
     GPIO_SetPinDirection(LEFT_ECHO_PORT, LEFT_ECHO_PIN, GPIO_INPUT);
-    GPIO_SetPinDirection(BACK_ECHO_PORT, BACK_ECHO_PIN, GPIO_INPUT);
     ultrasonic_init_sensor(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN);
+    ultrasonic_init_sensor(BACK_TRIG_PORT,  BACK_TRIG_PIN,  BACK_ECHO_PORT,  BACK_ECHO_PIN);
 
     /* UART: TX first (sets SPEN + SPBRG + BRGH),
      * then full RX init (CREN + RCIE + PEIE + GIE).
@@ -308,7 +311,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:BACK_SENSOR_ON_FRONT_PINS_RB1_RB2\r\n");
+    uart_write_str("DIAG:FRONT_BACK_RAW_F12_B34\r\n");
 
     while(1)
     {
@@ -320,17 +323,25 @@ void MANUAL_CONTROL_Test(void)
 
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
 
+        front_valid = 0;
         back_valid = 0;
 
         for(i = 0; i < US_SAMPLE_COUNT; i++)
         {
             sample_cm = ultrasonic_cm(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN, &status, &pulse_ticks);
+            add_valid_sample(front_samples, &front_valid, sample_cm, status);
+            front_last_status = status;
+            front_last_ticks = pulse_ticks;
+            delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
+
+            sample_cm = ultrasonic_cm(BACK_TRIG_PORT, BACK_TRIG_PIN, BACK_ECHO_PORT, BACK_ECHO_PIN, &status, &pulse_ticks);
             add_valid_sample(back_samples, &back_valid, sample_cm, status);
             back_last_status = status;
             back_last_ticks = pulse_ticks;
             delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
         }
 
+        front_cm = median_or_no_echo(front_samples, front_valid);
         back_cm = median_or_no_echo(back_samples, back_valid);
 
         __delay_ms(30);
@@ -341,13 +352,21 @@ void MANUAL_CONTROL_Test(void)
             process_cmd(UART_RX_GetByte());
         }
 
-        uart_write_str("US:B=");
+        uart_write_str("US:F=");
+        uart_write_u16(front_cm);
+        uart_write_str(",B=");
         uart_write_u16(back_cm);
         uart_write_str("\r\n");
-        uart_write_str("DIAG:MED:B=");
+        uart_write_str("DIAG:MED:F=");
+        uart_write_u16(front_valid);
+        uart_write_str(",B=");
         uart_write_u16(back_valid);
         uart_write_str("\r\n");
-        uart_write_str("DIAG:RAW:B=");
+        uart_write_str("DIAG:RAW:F=");
+        UART_Write(front_last_status);
+        uart_write_str(",");
+        uart_write_u16(front_last_ticks);
+        uart_write_str(",B=");
         UART_Write(back_last_status);
         uart_write_str(",");
         uart_write_u16(back_last_ticks);
