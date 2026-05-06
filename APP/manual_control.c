@@ -128,6 +128,7 @@ static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
     *status = 'O';
     *pulse_ticks = 0;
 
+    TIMER1_Stop();
     TIMER1_Reset();
     TIMER1_Start();
     while(GPIO_GetPinValue(echo_port, echo_pin) == GPIO_HIGH)
@@ -147,6 +148,7 @@ static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
     __delay_us(10);
     GPIO_SetPinValue(trig_port, trig_pin, GPIO_LOW);
 
+    TIMER1_Stop();
     TIMER1_Reset();
     TIMER1_Start();
     while(GPIO_GetPinValue(echo_port, echo_pin) == GPIO_LOW)
@@ -159,7 +161,9 @@ static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
         }
     }
 
+    TIMER1_Stop();
     TIMER1_Reset();
+    TIMER1_Start();
     while(GPIO_GetPinValue(echo_port, echo_pin) == GPIO_HIGH)
     {
         width_ticks = TIMER1_GetValue();
@@ -273,15 +277,15 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: three long flashes, two quick flashes. */
-    for(n = 0; n < 3U; n++)
+    /* New-hex visual signature: four long flashes, one quick flash. */
+    for(n = 0; n < 4U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(700);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
         __delay_ms(300);
     }
-    for(n = 0; n < 2U; n++)
+    for(n = 0; n < 1U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
