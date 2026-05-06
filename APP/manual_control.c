@@ -37,14 +37,14 @@
 #define FRONT_TRIG_PIN  GPIO_PIN1
 #define FRONT_ECHO_PORT GPIO_PORTB
 #define FRONT_ECHO_PIN  GPIO_PIN2
-#define BACK_TRIG_PORT  GPIO_PORTB
-#define BACK_TRIG_PIN   GPIO_PIN3
-#define BACK_ECHO_PORT  GPIO_PORTB
-#define BACK_ECHO_PIN   GPIO_PIN4
-#define LEFT_TRIG_PORT  GPIO_PORTB
-#define LEFT_TRIG_PIN   GPIO_PIN5
-#define LEFT_ECHO_PORT  GPIO_PORTB
-#define LEFT_ECHO_PIN   GPIO_PIN6
+#define BACK_TRIG_PORT  GPIO_PORTC
+#define BACK_TRIG_PIN   GPIO_PIN0
+#define BACK_ECHO_PORT  GPIO_PORTC
+#define BACK_ECHO_PIN   GPIO_PIN1
+#define LEFT_TRIG_PORT  GPIO_PORTC
+#define LEFT_TRIG_PIN   GPIO_PIN3
+#define LEFT_ECHO_PORT  GPIO_PORTC
+#define LEFT_ECHO_PIN   GPIO_PIN4
 #define DRIVE_DUTY   65U     /* PWM duty cycle for motor enable */
 #define US_TIMEOUT_TICKS 60000U /* Timer1 1:2 @ 20 MHz = 0.4 us/tick, 24 ms */
 #define US_MIN_WIDTH_TICKS 145U /* about 1 cm; below this is a false/glitch pulse */
@@ -277,15 +277,15 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: four long flashes, one quick flash. */
-    for(n = 0; n < 4U; n++)
+    /* New-hex visual signature: five long flashes, three quick flashes. */
+    for(n = 0; n < 5U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(700);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
         __delay_ms(300);
     }
-    for(n = 0; n < 1U; n++)
+    for(n = 0; n < 3U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -314,7 +314,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:US3_SEPARATE_RAW_F12_B34_L56\r\n");
+    uart_write_str("DIAG:US3_SEPARATE_RAW_F12_BC01_LC34\r\n");
 
     while(1)
     {
