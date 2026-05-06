@@ -94,6 +94,11 @@ static void process_pending_cmds(void)
     {
         process_cmd(UART_RX_GetByte());
     }
+
+    while(UART_RX_HasData())
+    {
+        process_cmd(UART_Read());
+    }
 }
 
 /* ---- helper: blocking string send ---- */
@@ -277,8 +282,8 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: six long flashes, one quick flash. */
-    for(n = 0; n < 6U; n++)
+    /* New-hex visual signature: seven long flashes, one quick flash. */
+    for(n = 0; n < 7U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(700);
@@ -310,7 +315,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:DRIVE_STABLE_CMD_DRAIN_FLR\r\n");
+    uart_write_str("DIAG:DRIVE_STABLE_RX_FALLBACK_FLR\r\n");
 
     while(1)
     {
