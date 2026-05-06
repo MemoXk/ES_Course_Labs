@@ -56,6 +56,7 @@
 
 /* ---- forward decls ---- */
 static void process_cmd(u8 byte);
+static void process_pending_cmds(void);
 static void uart_write_str(const char* s);
 static void uart_write_u16(u16 v);
 static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
@@ -85,6 +86,14 @@ static void process_cmd(u8 byte)
     uart_write_str("ACK:");
     UART_Write((u8)ack_letter);
     uart_write_str("\r\n");
+}
+
+static void process_pending_cmds(void)
+{
+    while(UART_RX_IsReady())
+    {
+        process_cmd(UART_RX_GetByte());
+    }
 }
 
 /* ---- helper: blocking string send ---- */
@@ -239,10 +248,7 @@ static void delay_with_cmd_checks(u8 ticks_10ms)
     for(i = 0; i < ticks_10ms; i++)
     {
         __delay_ms(10);
-        if(UART_RX_IsReady())
-        {
-            process_cmd(UART_RX_GetByte());
-        }
+        process_pending_cmds();
     }
 }
 
@@ -271,21 +277,17 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: five long flashes, five quick flashes. */
-    for(n = 0; n < 5U; n++)
+    /* New-hex visual signature: six long flashes, one quick flash. */
+    for(n = 0; n < 6U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(700);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
         __delay_ms(300);
     }
-    for(n = 0; n < 5U; n++)
-    {
-        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-        __delay_ms(80);
-        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
-        __delay_ms(120);
-    }
+    GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
+    __delay_ms(80);
+    GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
     __delay_ms(300);
 
     /* Motors + PWM */
@@ -308,15 +310,11 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:DRIVE_STABLE_US_FLR\r\n");
+    uart_write_str("DIAG:DRIVE_STABLE_CMD_DRAIN_FLR\r\n");
 
     while(1)
     {
-        /* Check for command captured by ISR */
-        if(UART_RX_IsReady())
-        {
-            process_cmd(UART_RX_GetByte());
-        }
+        process_pending_cmds();
 
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
 
@@ -326,15 +324,21 @@ void MANUAL_CONTROL_Test(void)
 
         for(i = 0; i < US_SAMPLE_COUNT; i++)
         {
+            process_pending_cmds();
             sample_cm = ultrasonic_cm(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN, &status, &pulse_ticks);
+            process_pending_cmds();
             add_valid_sample(front_samples, &front_valid, sample_cm, status);
             delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
 
+            process_pending_cmds();
             sample_cm = ultrasonic_cm(LEFT_TRIG_PORT, LEFT_TRIG_PIN, LEFT_ECHO_PORT, LEFT_ECHO_PIN, &status, &pulse_ticks);
+            process_pending_cmds();
             add_valid_sample(left_samples, &left_valid, sample_cm, status);
             delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
 
+            process_pending_cmds();
             sample_cm = ultrasonic_cm(RIGHT_TRIG_PORT, RIGHT_TRIG_PIN, RIGHT_ECHO_PORT, RIGHT_ECHO_PIN, &status, &pulse_ticks);
+            process_pending_cmds();
             add_valid_sample(right_samples, &right_valid, sample_cm, status);
             delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
         }
@@ -346,10 +350,7 @@ void MANUAL_CONTROL_Test(void)
         __delay_ms(30);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-        if(UART_RX_IsReady())
-        {
-            process_cmd(UART_RX_GetByte());
-        }
+        process_pending_cmds();
 
         uart_write_str("US:F=");
         uart_write_u16(front_cm);
@@ -365,19 +366,19 @@ void MANUAL_CONTROL_Test(void)
         uart_write_str(",R=");
         uart_write_u16(right_valid);
         uart_write_str("\r\n");
+        process_pending_cmds();
 
         for(i = 0; i < 2U; i++)
         {
             __delay_ms(100);
-            if(UART_RX_IsReady())
-            {
-                process_cmd(UART_RX_GetByte());
-            }
+            process_pending_cmds();
         }
 
         hb_tick++;
+        process_pending_cmds();
         uart_write_str("HB:");
         uart_write_u16(hb_tick);
         uart_write_str("\r\n");
+        process_pending_cmds();
     }
 }
