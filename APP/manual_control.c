@@ -4,8 +4,8 @@
  * UART-driven manual motor control — ISR-driven RX.
  *
  * UART_RX_Init() enables the receiver with interrupts (RCIE+PEIE+GIE).
- * When a byte arrives the ISR fires instantly, reads RCREG, and sets a
- * volatile flag pair (UART_rx_data / UART_rx_ready) with NO function-
+ * When a byte arrives the ISR fires instantly, reads RCREG, and stores it
+ * in a tiny RX queue with NO function-
  * pointer call — that was the PIC16 PCLATH trap that silently broke the
  * old callback approach.  The main loop checks UART_RX_IsReady() and
  * calls UART_RX_GetByte(); this works identically for manual control
@@ -48,8 +48,8 @@
 #define DRIVE_DUTY   65U     /* PWM duty cycle for motor enable */
 #define US_TIMEOUT_TICKS 60000U /* Timer1 1:2 @ 20 MHz = 0.4 us/tick, 24 ms */
 #define US_MIN_WIDTH_TICKS 145U /* about 1 cm; below this is a false/glitch pulse */
-#define US_SAMPLE_COUNT   5U
-#define US_MIN_VALID      3U
+#define US_SAMPLE_COUNT   3U
+#define US_MIN_VALID      2U
 #define US_MAX_VALID_CM   400U
 #define US_INTER_PING_MS  60U
 #define US_NO_ECHO_CM    999U
@@ -260,32 +260,26 @@ void MANUAL_CONTROL_Test(void)
     u16 right_cm;
     u16 sample_cm;
     u16 pulse_ticks;
-    u16 front_last_ticks = 0;
-    u16 left_last_ticks = 0;
-    u16 right_last_ticks = 0;
     u8  i;
     u8  n;
     u8  front_valid;
     u8  left_valid;
     u8  right_valid;
     u8  status;
-    u8  front_last_status = 'N';
-    u8  left_last_status = 'N';
-    u8  right_last_status = 'N';
 
     /* Heartbeat LED on RB0 */
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: four long flashes, four quick flashes. */
-    for(n = 0; n < 4U; n++)
+    /* New-hex visual signature: five long flashes, five quick flashes. */
+    for(n = 0; n < 5U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(700);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
         __delay_ms(300);
     }
-    for(n = 0; n < 4U; n++)
+    for(n = 0; n < 5U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -308,13 +302,13 @@ void MANUAL_CONTROL_Test(void)
 
     /* UART: TX first (sets SPEN + SPBRG + BRGH),
      * then full RX init (CREN + RCIE + PEIE + GIE).
-     * ISR writes UART_rx_data/UART_rx_ready; main loop reads
-     * via UART_RX_IsReady() / UART_RX_GetByte().              */
+     * ISR queues RX bytes; main loop reads via
+     * UART_RX_IsReady() / UART_RX_GetByte().                  */
     UART_TX_Init();
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:FRONT_LEFT_RIGHT_RAW_F12_L56_R34\r\n");
+    uart_write_str("DIAG:DRIVE_STABLE_US_FLR\r\n");
 
     while(1)
     {
@@ -334,20 +328,14 @@ void MANUAL_CONTROL_Test(void)
         {
             sample_cm = ultrasonic_cm(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN, &status, &pulse_ticks);
             add_valid_sample(front_samples, &front_valid, sample_cm, status);
-            front_last_status = status;
-            front_last_ticks = pulse_ticks;
             delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
 
             sample_cm = ultrasonic_cm(LEFT_TRIG_PORT, LEFT_TRIG_PIN, LEFT_ECHO_PORT, LEFT_ECHO_PIN, &status, &pulse_ticks);
             add_valid_sample(left_samples, &left_valid, sample_cm, status);
-            left_last_status = status;
-            left_last_ticks = pulse_ticks;
             delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
 
             sample_cm = ultrasonic_cm(RIGHT_TRIG_PORT, RIGHT_TRIG_PIN, RIGHT_ECHO_PORT, RIGHT_ECHO_PIN, &status, &pulse_ticks);
             add_valid_sample(right_samples, &right_valid, sample_cm, status);
-            right_last_status = status;
-            right_last_ticks = pulse_ticks;
             delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
         }
 
@@ -376,19 +364,6 @@ void MANUAL_CONTROL_Test(void)
         uart_write_u16(left_valid);
         uart_write_str(",R=");
         uart_write_u16(right_valid);
-        uart_write_str("\r\n");
-        uart_write_str("DIAG:RAW:F=");
-        UART_Write(front_last_status);
-        uart_write_str(",");
-        uart_write_u16(front_last_ticks);
-        uart_write_str(",L=");
-        UART_Write(left_last_status);
-        uart_write_str(",");
-        uart_write_u16(left_last_ticks);
-        uart_write_str(",R=");
-        UART_Write(right_last_status);
-        uart_write_str(",");
-        uart_write_u16(right_last_ticks);
         uart_write_str("\r\n");
 
         for(i = 0; i < 2U; i++)

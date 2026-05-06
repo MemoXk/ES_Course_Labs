@@ -19,8 +19,12 @@ void (*UART_Callback)(u8) = 0;
    unreliable inside ISR context.
 ================================= */
 
-static volatile u8 UART_rx_data  = 0;
-static volatile u8 UART_rx_ready = 0;
+#define UART_RX_BUF_SIZE 8U
+#define UART_RX_BUF_MASK (UART_RX_BUF_SIZE - 1U)
+
+static volatile u8 UART_rx_buf[UART_RX_BUF_SIZE];
+static volatile u8 UART_rx_head = 0;
+static volatile u8 UART_rx_tail = 0;
 
 /* =================================
    RX Initialization
@@ -172,8 +176,14 @@ void UART_ISR(void)
     rx_byte = RCREG;
     if(rx_byte == '\r' || rx_byte == '\n') { return; }
 
-    UART_rx_data = rx_byte;
-    UART_rx_ready = 1;
+    {
+        u8 next_head = (u8)((UART_rx_head + 1U) & UART_RX_BUF_MASK);
+        if(next_head != UART_rx_tail)
+        {
+            UART_rx_buf[UART_rx_head] = rx_byte;
+            UART_rx_head = next_head;
+        }
+    }
 }
 
 /* =================================
@@ -183,7 +193,7 @@ void UART_ISR(void)
 
 u8 UART_RX_IsReady(void)
 {
-    return UART_rx_ready;
+    return (UART_rx_head != UART_rx_tail);
 }
 
 u8 UART_RX_GetByte(void)
@@ -194,8 +204,15 @@ u8 UART_RX_GetByte(void)
     gie_was_enabled = GET_BIT(INTCON, GIE_BIT);
     CLR_BIT(INTCON, GIE_BIT);
 
-    data = UART_rx_data;
-    UART_rx_ready = 0;
+    if(UART_rx_head != UART_rx_tail)
+    {
+        data = UART_rx_buf[UART_rx_tail];
+        UART_rx_tail = (u8)((UART_rx_tail + 1U) & UART_RX_BUF_MASK);
+    }
+    else
+    {
+        data = 0;
+    }
 
     if(gie_was_enabled)
     {
