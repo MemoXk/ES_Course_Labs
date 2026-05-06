@@ -26,12 +26,35 @@ static volatile u8 UART_rx_buf[UART_RX_BUF_SIZE];
 static volatile u8 UART_rx_head = 0;
 static volatile u8 UART_rx_tail = 0;
 
+static void UART_RX_ClearHardware(void)
+{
+    volatile u8 discard;
+    u8 guard = 0;
+
+    UART_rx_head = 0;
+    UART_rx_tail = 0;
+
+    if(GET_BIT(RCSTA, OERR_BIT))
+    {
+        CLR_BIT(RCSTA, CREN_BIT);
+        SET_BIT(RCSTA, CREN_BIT);
+    }
+
+    while(GET_BIT(PIR1, RCIF_BIT) && guard < 2U)
+    {
+        discard = RCREG;
+        (void)discard;
+        guard++;
+    }
+}
+
 /* =================================
    RX Initialization
 ================================= */
 
 void UART_RX_Init(void)
 {
+    SET_BIT(TRISC, UART_RX_TRIS_BIT);
 
 #if (UART_HIGH_SPEED == 1)
     SET_BIT(TXSTA , BRGH_BIT);          /* High Speed Mode (BRGH=1) */
@@ -45,6 +68,8 @@ void UART_RX_Init(void)
 
     SET_BIT(RCSTA , SPEN_BIT);      // Enable Serial Port
 
+    CLR_BIT(RCSTA , CREN_BIT);      // Reset receiver before enabling
+    UART_RX_ClearHardware();
     SET_BIT(RCSTA , CREN_BIT);      // Continuous Receive
 
     SET_BIT(PIE1 , RCIE_BIT);       // Enable UART RX Interrupt
@@ -59,6 +84,7 @@ void UART_RX_Init(void)
 
 void UART_TX_Init(void)
 {
+    CLR_BIT(TRISC, UART_TX_TRIS_BIT);
 
 #if (UART_HIGH_SPEED == 1)
     SET_BIT(TXSTA , BRGH_BIT);          /* High Speed Mode (BRGH=1) */
@@ -117,6 +143,9 @@ void UART_RX_Enable_Polled(void)
 {
     /* SPEN is already set by UART_TX_Init().
      * Just enable the receiver — no RCIE/PEIE/GIE needed. */
+    SET_BIT(TRISC, UART_RX_TRIS_BIT);
+    CLR_BIT(RCSTA , CREN_BIT);
+    UART_RX_ClearHardware();
     SET_BIT(RCSTA , CREN_BIT);
 }
 
@@ -150,6 +179,7 @@ void UART_SetCallback(void (*Callback)(u8))
 void UART_ISR(void)
 {
     u8 rx_byte;
+    u8 ferr;
 
     /* Recover from Overrun Error: toggle CREN to reset the receiver.
      * If OERR sets the hardware refuses further bytes until CREN is
@@ -158,7 +188,6 @@ void UART_ISR(void)
     {
         CLR_BIT(RCSTA, CREN_BIT);
         SET_BIT(RCSTA, CREN_BIT);
-        return;
     }
 
     /* Reading RCREG clears RCIF and any framing error flag.
@@ -173,7 +202,9 @@ void UART_ISR(void)
      * filter the '\n' ISR fires ~1 ms after the command byte and
      * overwrites UART_rx_data before the main loop has a chance to
      * read it, so the loop always sees '\n' → default case → no ACK. */
+    ferr = GET_BIT(RCSTA, FERR_BIT);
     rx_byte = RCREG;
+    if(ferr) { return; }
     if(rx_byte == '\r' || rx_byte == '\n') { return; }
 
     {
