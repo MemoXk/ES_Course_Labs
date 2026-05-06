@@ -21,6 +21,26 @@ void (*UART_Callback)(u8) = 0;
 
 static volatile u8 UART_rx_data  = 0;
 static volatile u8 UART_rx_ready = 0;
+static volatile u16 UART_rx_isr_count = 0;
+static volatile u16 UART_rx_byte_count = 0;
+static volatile u16 UART_rx_overrun_count = 0;
+static volatile u16 UART_rx_framing_count = 0;
+static volatile u8 UART_rx_last_byte = 0;
+
+static u16 UART_ReadCounterAtomic(volatile u16* counter)
+{
+    u16 value;
+    u8 gie_was_enabled;
+
+    gie_was_enabled = GET_BIT(INTCON, GIE_BIT);
+    CLR_BIT(INTCON, GIE_BIT);
+    value = *counter;
+    if(gie_was_enabled)
+    {
+        SET_BIT(INTCON, GIE_BIT);
+    }
+    return value;
+}
 
 /* =================================
    RX Initialization
@@ -28,6 +48,9 @@ static volatile u8 UART_rx_ready = 0;
 
 void UART_RX_Init(void)
 {
+    SET_BIT(TRISC, UART_RX_TRIS_BIT);
+    UART_rx_data = 0;
+    UART_rx_ready = 0;
 
 #if (UART_HIGH_SPEED == 1)
     SET_BIT(TXSTA , BRGH_BIT);          /* High Speed Mode (BRGH=1) */
@@ -41,6 +64,7 @@ void UART_RX_Init(void)
 
     SET_BIT(RCSTA , SPEN_BIT);      // Enable Serial Port
 
+    CLR_BIT(RCSTA , CREN_BIT);      // Reset receiver before enabling
     SET_BIT(RCSTA , CREN_BIT);      // Continuous Receive
 
     SET_BIT(PIE1 , RCIE_BIT);       // Enable UART RX Interrupt
@@ -55,6 +79,7 @@ void UART_RX_Init(void)
 
 void UART_TX_Init(void)
 {
+    CLR_BIT(TRISC, UART_TX_TRIS_BIT);
 
 #if (UART_HIGH_SPEED == 1)
     SET_BIT(TXSTA , BRGH_BIT);          /* High Speed Mode (BRGH=1) */
@@ -113,6 +138,7 @@ void UART_RX_Enable_Polled(void)
 {
     /* SPEN is already set by UART_TX_Init().
      * Just enable the receiver — no RCIE/PEIE/GIE needed. */
+    SET_BIT(TRISC, UART_RX_TRIS_BIT);
     SET_BIT(RCSTA , CREN_BIT);
 }
 
@@ -146,12 +172,16 @@ void UART_SetCallback(void (*Callback)(u8))
 void UART_ISR(void)
 {
     u8 rx_byte;
+    u8 ferr;
+
+    UART_rx_isr_count++;
 
     /* Recover from Overrun Error: toggle CREN to reset the receiver.
      * If OERR sets the hardware refuses further bytes until CREN is
      * cleared and re-enabled.                                         */
     if(GET_BIT(RCSTA, OERR_BIT))
     {
+        UART_rx_overrun_count++;
         CLR_BIT(RCSTA, CREN_BIT);
         SET_BIT(RCSTA, CREN_BIT);
         return;
@@ -169,11 +199,19 @@ void UART_ISR(void)
      * filter the '\n' ISR fires ~1 ms after the command byte and
      * overwrites UART_rx_data before the main loop has a chance to
      * read it, so the loop always sees '\n' → default case → no ACK. */
+    ferr = GET_BIT(RCSTA, FERR_BIT);
     rx_byte = RCREG;
+    UART_rx_last_byte = rx_byte;
+    if(ferr)
+    {
+        UART_rx_framing_count++;
+        return;
+    }
     if(rx_byte == '\r' || rx_byte == '\n') { return; }
 
     UART_rx_data = rx_byte;
     UART_rx_ready = 1;
+    UART_rx_byte_count++;
 }
 
 /* =================================
@@ -203,6 +241,61 @@ u8 UART_RX_GetByte(void)
     }
 
     return data;
+}
+
+u16 UART_RX_GetIsrCount(void)
+{
+    return UART_ReadCounterAtomic(&UART_rx_isr_count);
+}
+
+u16 UART_RX_GetByteCount(void)
+{
+    return UART_ReadCounterAtomic(&UART_rx_byte_count);
+}
+
+u16 UART_RX_GetOverrunCount(void)
+{
+    return UART_ReadCounterAtomic(&UART_rx_overrun_count);
+}
+
+u16 UART_RX_GetFramingCount(void)
+{
+    return UART_ReadCounterAtomic(&UART_rx_framing_count);
+}
+
+u8 UART_RX_GetLastByte(void)
+{
+    return UART_rx_last_byte;
+}
+
+u8 UART_RX_GetReadyFlag(void)
+{
+    return UART_rx_ready;
+}
+
+u8 UART_Debug_ReadRCSTA(void)
+{
+    return RCSTA;
+}
+
+u8 UART_Debug_ReadPIR1(void)
+{
+    return PIR1;
+}
+
+u8 UART_Debug_ReadPIE1(void)
+{
+    return PIE1;
+}
+
+u8 UART_Debug_ReadINTCON(void)
+{
+    return INTCON;
+}
+
+u8 UART_Debug_ReadTRISC(void)
+{
+    return TRISC;
 }
 
 

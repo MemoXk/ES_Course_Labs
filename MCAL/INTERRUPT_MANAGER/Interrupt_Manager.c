@@ -14,19 +14,19 @@
 void __interrupt() isr(void)
 {
     /* ---- UART RX interrupt (PIR1.RCIF) ---- */
-    if(GET_BIT(PIR1, RCIF_BIT))
+    if(GET_BIT(PIR1, RCIF_BIT) && GET_BIT(PIE1, RCIE_BIT))
     {
         UART_ISR();
     }
 
     /* ---- Timer0 overflow interrupt (INTCON.T0IF) ---- */
-    if(GET_BIT(INTCON, T0IF_BIT))
+    if(GET_BIT(INTCON, T0IF_BIT) && GET_BIT(INTCON, T0IE_BIT))
     {
         TIMER0_ISR();
     }
 
     /* ---- External interrupt RB0/INT (INTCON.INTF) ---- */
-    if(GET_BIT(INTCON, INTF_BIT))
+    if(GET_BIT(INTCON, INTF_BIT) && GET_BIT(INTCON, INTE_BIT))
     {
         EXT_INT_ISR();
     }

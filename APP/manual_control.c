@@ -58,6 +58,8 @@
 static void process_cmd(u8 byte);
 static void uart_write_str(const char* s);
 static void uart_write_u16(u16 v);
+static void uart_write_hex8(u8 v);
+static void uart_write_uart_diag(void);
 static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
                          u8* status, u16* pulse_ticks);
 static void add_valid_sample(u16 samples[], u8* count, u16 sample_cm, u8 status);
@@ -118,6 +120,43 @@ static void uart_write_u16(u16 v)
     {
         UART_Write((u8)buf[j]);
     }
+}
+
+static void uart_write_hex8(u8 v)
+{
+    static const char hex[] = "0123456789ABCDEF";
+
+    UART_Write((u8)hex[(v >> 4) & 0x0FU]);
+    UART_Write((u8)hex[v & 0x0FU]);
+}
+
+static void uart_write_uart_diag(void)
+{
+    uart_write_str("DIAG:U1:I=");
+    uart_write_u16(UART_RX_GetIsrCount());
+    uart_write_str(",B=");
+    uart_write_u16(UART_RX_GetByteCount());
+    uart_write_str(",O=");
+    uart_write_u16(UART_RX_GetOverrunCount());
+    uart_write_str(",F=");
+    uart_write_u16(UART_RX_GetFramingCount());
+    uart_write_str(",L=");
+    uart_write_hex8(UART_RX_GetLastByte());
+    uart_write_str("\r\n");
+
+    uart_write_str("DIAG:U2:RD=");
+    uart_write_u16(UART_RX_GetReadyFlag());
+    uart_write_str(",RC=");
+    uart_write_hex8(UART_Debug_ReadRCSTA());
+    uart_write_str(",P=");
+    uart_write_hex8(UART_Debug_ReadPIR1());
+    uart_write_str(",E=");
+    uart_write_hex8(UART_Debug_ReadPIE1());
+    uart_write_str(",IC=");
+    uart_write_hex8(UART_Debug_ReadINTCON());
+    uart_write_str(",T=");
+    uart_write_hex8(UART_Debug_ReadTRISC());
+    uart_write_str("\r\n");
 }
 
 static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
@@ -277,17 +316,21 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: eleven long flashes, one quick flash. */
-    for(n = 0; n < 11U; n++)
+    /* New-hex visual signature: twelve long flashes, two quick flashes. */
+    for(n = 0; n < 12U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(700);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
         __delay_ms(300);
     }
-    GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-    __delay_ms(80);
-    GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
+    for(n = 0; n < 2U; n++)
+    {
+        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
+        __delay_ms(80);
+        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
+        __delay_ms(120);
+    }
     __delay_ms(300);
 
     /* Motors + PWM */
@@ -310,7 +353,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:ROLLBACK_23D3FC6_FLR_RAW_11L1Q\r\n");
+    uart_write_str("DIAG:UART_RX_DIAG_FLR_RAW_12L2Q\r\n");
 
     while(1)
     {
@@ -386,6 +429,7 @@ void MANUAL_CONTROL_Test(void)
         uart_write_str(",");
         uart_write_u16(right_last_ticks);
         uart_write_str("\r\n");
+        uart_write_uart_diag();
 
         for(i = 0; i < 2U; i++)
         {

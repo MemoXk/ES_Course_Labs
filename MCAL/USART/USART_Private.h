@@ -30,6 +30,9 @@
 #ifndef INTCON
 #define INTCON  (*(volatile unsigned char*)0x0B)
 #endif
+#ifndef TRISC
+#define TRISC   (*(volatile unsigned char*)0x87)
+#endif
 
 /* ================= TXSTA Bit positions ================= */
 
@@ -57,5 +60,10 @@
 
 #define PEIE_BIT   6
 #define GIE_BIT    7
+
+/* ================= UART pin directions ================= */
+
+#define UART_TX_TRIS_BIT  6
+#define UART_RX_TRIS_BIT  7
 
 #endif

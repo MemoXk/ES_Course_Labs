@@ -26,6 +26,20 @@ u8   UART_RX_HasData(void);
 u8   UART_RX_IsReady(void);
 u8   UART_RX_GetByte(void);
 
+/* RX diagnostics: used by firmware tests to prove whether bytes reach
+ * the UART hardware, ISR, and foreground command handler. */
+u16  UART_RX_GetIsrCount(void);
+u16  UART_RX_GetByteCount(void);
+u16  UART_RX_GetOverrunCount(void);
+u16  UART_RX_GetFramingCount(void);
+u8   UART_RX_GetLastByte(void);
+u8   UART_RX_GetReadyFlag(void);
+u8   UART_Debug_ReadRCSTA(void);
+u8   UART_Debug_ReadPIR1(void);
+u8   UART_Debug_ReadPIE1(void);
+u8   UART_Debug_ReadINTCON(void);
+u8   UART_Debug_ReadTRISC(void);
+
 void UART_SetCallback(void (*Callback)(u8));
 void UART_ISR(void);
 
