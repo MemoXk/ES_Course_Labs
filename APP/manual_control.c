@@ -31,8 +31,6 @@
 #include "../MCAL/PWM/PWM_Interface.h"
 #include "../MCAL/TIMER_1/TIMER_1_Interface.h"
 
-#define HB_PORT      GPIO_PORTB
-#define HB_PIN       GPIO_PIN0
 #define FRONT_TRIG_PORT GPIO_PORTB
 #define FRONT_TRIG_PIN  GPIO_PIN1
 #define FRONT_ECHO_PORT GPIO_PORTB
@@ -303,7 +301,6 @@ void MANUAL_CONTROL_Test(void)
     u16 left_last_ticks = 0;
     u16 right_last_ticks = 0;
     u8  i;
-    u8  n;
     u8  front_valid;
     u8  left_valid;
     u8  right_valid;
@@ -311,27 +308,6 @@ void MANUAL_CONTROL_Test(void)
     u8  front_last_status = 'N';
     u8  left_last_status = 'N';
     u8  right_last_status = 'N';
-
-    /* Heartbeat LED on RB0 */
-    GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
-    GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
-
-    /* New-hex visual signature: twelve long flashes, two quick flashes. */
-    for(n = 0; n < 12U; n++)
-    {
-        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-        __delay_ms(700);
-        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
-        __delay_ms(300);
-    }
-    for(n = 0; n < 2U; n++)
-    {
-        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-        __delay_ms(80);
-        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
-        __delay_ms(120);
-    }
-    __delay_ms(300);
 
     /* Motors + PWM */
     MOTOR_Init();
@@ -353,7 +329,8 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:UART_RX_DIAG_FLR_RAW_12L2Q\r\n");
+    uart_write_str("DIAG:BUILD_NO_RB0_UART_DIAG_20260506_A\r\n");
+    uart_write_str("DIAG:UART_RX_DIAG_FLR_RAW_NO_RB0\r\n");
 
     while(1)
     {
@@ -362,8 +339,6 @@ void MANUAL_CONTROL_Test(void)
         {
             process_cmd(UART_RX_GetByte());
         }
-
-        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
 
         front_valid = 0;
         left_valid = 0;
@@ -393,9 +368,6 @@ void MANUAL_CONTROL_Test(void)
         front_cm = median_or_no_echo(front_samples, front_valid);
         left_cm = median_or_no_echo(left_samples, left_valid);
         right_cm = median_or_no_echo(right_samples, right_valid);
-
-        __delay_ms(30);
-        GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
         if(UART_RX_IsReady())
         {
