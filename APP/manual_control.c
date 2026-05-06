@@ -256,26 +256,32 @@ void MANUAL_CONTROL_Test(void)
     u16 left_cm;
     u16 sample_cm;
     u16 pulse_ticks;
+    u16 front_last_ticks = 0;
+    u16 back_last_ticks = 0;
+    u16 left_last_ticks = 0;
     u8  i;
     u8  n;
     u8  front_valid;
     u8  back_valid;
     u8  left_valid;
     u8  status;
+    u8  front_last_status = 'N';
+    u8  back_last_status = 'N';
+    u8  left_last_status = 'N';
 
     /* Heartbeat LED on RB0 */
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: two long flashes, eight quick flashes. */
-    for(n = 0; n < 2U; n++)
+    /* New-hex visual signature: three long flashes, two quick flashes. */
+    for(n = 0; n < 3U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(700);
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
         __delay_ms(300);
     }
-    for(n = 0; n < 8U; n++)
+    for(n = 0; n < 2U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -304,7 +310,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:US3_SEPARATE_TRIG_60MS_F12_B34_L56\r\n");
+    uart_write_str("DIAG:US3_SEPARATE_RAW_F12_B34_L56\r\n");
 
     while(1)
     {
@@ -324,14 +330,20 @@ void MANUAL_CONTROL_Test(void)
         {
             sample_cm = ultrasonic_cm(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN, &status, &pulse_ticks);
             add_valid_sample(front_samples, &front_valid, sample_cm, status);
+            front_last_status = status;
+            front_last_ticks = pulse_ticks;
             delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
 
             sample_cm = ultrasonic_cm(BACK_TRIG_PORT, BACK_TRIG_PIN, BACK_ECHO_PORT, BACK_ECHO_PIN, &status, &pulse_ticks);
             add_valid_sample(back_samples, &back_valid, sample_cm, status);
+            back_last_status = status;
+            back_last_ticks = pulse_ticks;
             delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
 
             sample_cm = ultrasonic_cm(LEFT_TRIG_PORT, LEFT_TRIG_PIN, LEFT_ECHO_PORT, LEFT_ECHO_PIN, &status, &pulse_ticks);
             add_valid_sample(left_samples, &left_valid, sample_cm, status);
+            left_last_status = status;
+            left_last_ticks = pulse_ticks;
             delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
         }
 
@@ -360,6 +372,19 @@ void MANUAL_CONTROL_Test(void)
         uart_write_u16(back_valid);
         uart_write_str(",L=");
         uart_write_u16(left_valid);
+        uart_write_str("\r\n");
+        uart_write_str("DIAG:RAW:F=");
+        UART_Write(front_last_status);
+        uart_write_str(",");
+        uart_write_u16(front_last_ticks);
+        uart_write_str(",B=");
+        UART_Write(back_last_status);
+        uart_write_str(",");
+        uart_write_u16(back_last_ticks);
+        uart_write_str(",L=");
+        UART_Write(left_last_status);
+        uart_write_str(",");
+        uart_write_u16(left_last_ticks);
         uart_write_str("\r\n");
 
         for(i = 0; i < 2U; i++)
