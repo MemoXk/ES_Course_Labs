@@ -56,6 +56,7 @@
 
 /* ---- forward decls ---- */
 static void process_cmd(u8 byte);
+static void process_rx_byte(u8 byte);
 static void process_pending_cmds(void);
 static void uart_write_str(const char* s);
 static void uart_write_u16(u16 v);
@@ -88,16 +89,29 @@ static void process_cmd(u8 byte)
     uart_write_str("\r\n");
 }
 
+static void process_rx_byte(u8 byte)
+{
+    if(byte == '\r' || byte == '\n' || byte == 0U)
+    {
+        return;
+    }
+
+    uart_write_str("DIAG:RX=");
+    UART_Write(byte);
+    uart_write_str("\r\n");
+    process_cmd(byte);
+}
+
 static void process_pending_cmds(void)
 {
     while(UART_RX_IsReady())
     {
-        process_cmd(UART_RX_GetByte());
+        process_rx_byte(UART_RX_GetByte());
     }
 
     while(UART_RX_HasData())
     {
-        process_cmd(UART_Read());
+        process_rx_byte(UART_Read());
     }
 }
 
@@ -282,8 +296,8 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: seven long flashes, one quick flash. */
-    for(n = 0; n < 7U; n++)
+    /* New-hex visual signature: eight long flashes, one quick flash. */
+    for(n = 0; n < 8U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(700);
@@ -302,11 +316,6 @@ void MANUAL_CONTROL_Test(void)
     PWM_Start();
     TIMER1_Init();
 
-    /* Front+Left+Right ultrasonic test. */
-    ultrasonic_init_sensor(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN);
-    ultrasonic_init_sensor(LEFT_TRIG_PORT,  LEFT_TRIG_PIN,  LEFT_ECHO_PORT,  LEFT_ECHO_PIN);
-    ultrasonic_init_sensor(RIGHT_TRIG_PORT, RIGHT_TRIG_PIN, RIGHT_ECHO_PORT, RIGHT_ECHO_PIN);
-
     /* UART: TX first (sets SPEN + SPBRG + BRGH),
      * then full RX init (CREN + RCIE + PEIE + GIE).
      * ISR queues RX bytes; main loop reads via
@@ -315,65 +324,18 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:DRIVE_STABLE_RX_FALLBACK_FLR\r\n");
+    uart_write_str("DIAG:RX_MOTOR_ONLY_8L1Q\r\n");
 
     while(1)
     {
         process_pending_cmds();
-
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-
-        front_valid = 0;
-        left_valid = 0;
-        right_valid = 0;
-
-        for(i = 0; i < US_SAMPLE_COUNT; i++)
-        {
-            process_pending_cmds();
-            sample_cm = ultrasonic_cm(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN, &status, &pulse_ticks);
-            process_pending_cmds();
-            add_valid_sample(front_samples, &front_valid, sample_cm, status);
-            delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
-
-            process_pending_cmds();
-            sample_cm = ultrasonic_cm(LEFT_TRIG_PORT, LEFT_TRIG_PIN, LEFT_ECHO_PORT, LEFT_ECHO_PIN, &status, &pulse_ticks);
-            process_pending_cmds();
-            add_valid_sample(left_samples, &left_valid, sample_cm, status);
-            delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
-
-            process_pending_cmds();
-            sample_cm = ultrasonic_cm(RIGHT_TRIG_PORT, RIGHT_TRIG_PIN, RIGHT_ECHO_PORT, RIGHT_ECHO_PIN, &status, &pulse_ticks);
-            process_pending_cmds();
-            add_valid_sample(right_samples, &right_valid, sample_cm, status);
-            delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
-        }
-
-        front_cm = median_or_no_echo(front_samples, front_valid);
-        left_cm = median_or_no_echo(left_samples, left_valid);
-        right_cm = median_or_no_echo(right_samples, right_valid);
-
-        __delay_ms(30);
+        __delay_ms(40);
+        process_pending_cmds();
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
-
         process_pending_cmds();
 
-        uart_write_str("US:F=");
-        uart_write_u16(front_cm);
-        uart_write_str(",L=");
-        uart_write_u16(left_cm);
-        uart_write_str(",R=");
-        uart_write_u16(right_cm);
-        uart_write_str("\r\n");
-        uart_write_str("DIAG:MED:F=");
-        uart_write_u16(front_valid);
-        uart_write_str(",L=");
-        uart_write_u16(left_valid);
-        uart_write_str(",R=");
-        uart_write_u16(right_valid);
-        uart_write_str("\r\n");
-        process_pending_cmds();
-
-        for(i = 0; i < 2U; i++)
+        for(i = 0; i < 10U; i++)
         {
             __delay_ms(100);
             process_pending_cmds();
