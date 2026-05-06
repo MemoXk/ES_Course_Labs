@@ -296,8 +296,8 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: nine long flashes, one quick flash. */
-    for(n = 0; n < 9U; n++)
+    /* New-hex visual signature: ten long flashes, one quick flash. */
+    for(n = 0; n < 10U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(700);
@@ -324,7 +324,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:RX_MOTOR_ONLY_UART_PIN_FIX_9L1Q\r\n");
+    uart_write_str("DIAG:RX_MOTOR_ONLY_SIMPLE_RX_10L1Q\r\n");
 
     while(1)
     {
