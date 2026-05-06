@@ -267,7 +267,7 @@ void MANUAL_CONTROL_Test(void)
     GPIO_SetPinDirection(HB_PORT, HB_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
-    /* New-hex visual signature: two long flashes, two quick flashes. */
+    /* New-hex visual signature: two long flashes, four quick flashes. */
     for(n = 0; n < 2U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
@@ -275,7 +275,7 @@ void MANUAL_CONTROL_Test(void)
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
         __delay_ms(300);
     }
-    for(n = 0; n < 2U; n++)
+    for(n = 0; n < 4U; n++)
     {
         GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
         __delay_ms(80);
@@ -291,14 +291,14 @@ void MANUAL_CONTROL_Test(void)
     PWM_Start();
     TIMER1_Init();
 
-    /* Back-only ultrasonic test: only RB3 is triggered, RB4 is measured. */
-    GPIO_SetPinDirection(FRONT_TRIG_PORT, FRONT_TRIG_PIN, GPIO_OUTPUT);
-    GPIO_SetPinValue(FRONT_TRIG_PORT, FRONT_TRIG_PIN, GPIO_LOW);
+    /* Back sensor on known-good front pins: RB1 is triggered, RB2 is measured. */
     GPIO_SetPinDirection(LEFT_TRIG_PORT, LEFT_TRIG_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(LEFT_TRIG_PORT, LEFT_TRIG_PIN, GPIO_LOW);
-    GPIO_SetPinDirection(FRONT_ECHO_PORT, FRONT_ECHO_PIN, GPIO_INPUT);
+    GPIO_SetPinDirection(BACK_TRIG_PORT, BACK_TRIG_PIN, GPIO_OUTPUT);
+    GPIO_SetPinValue(BACK_TRIG_PORT, BACK_TRIG_PIN, GPIO_LOW);
     GPIO_SetPinDirection(LEFT_ECHO_PORT, LEFT_ECHO_PIN, GPIO_INPUT);
-    ultrasonic_init_sensor(BACK_TRIG_PORT,  BACK_TRIG_PIN,  BACK_ECHO_PORT,  BACK_ECHO_PIN);
+    GPIO_SetPinDirection(BACK_ECHO_PORT, BACK_ECHO_PIN, GPIO_INPUT);
+    ultrasonic_init_sensor(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN);
 
     /* UART: TX first (sets SPEN + SPBRG + BRGH),
      * then full RX init (CREN + RCIE + PEIE + GIE).
@@ -308,7 +308,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:BACK_ONLY_RAW_RB3_RB4\r\n");
+    uart_write_str("DIAG:BACK_SENSOR_ON_FRONT_PINS_RB1_RB2\r\n");
 
     while(1)
     {
@@ -324,7 +324,7 @@ void MANUAL_CONTROL_Test(void)
 
         for(i = 0; i < US_SAMPLE_COUNT; i++)
         {
-            sample_cm = ultrasonic_cm(BACK_TRIG_PORT, BACK_TRIG_PIN, BACK_ECHO_PORT, BACK_ECHO_PIN, &status, &pulse_ticks);
+            sample_cm = ultrasonic_cm(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN, &status, &pulse_ticks);
             add_valid_sample(back_samples, &back_valid, sample_cm, status);
             back_last_status = status;
             back_last_ticks = pulse_ticks;
