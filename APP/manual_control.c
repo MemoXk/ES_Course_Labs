@@ -21,6 +21,8 @@
  *
  *   PIC → Pi :  "BOOT\r\n"        once at startup
  *               "ACK:X\r\n"        after each accepted command
+ *               "WARN:...\r\n"      when obstacle guard blocks/stops motion
+ *               "US:...\r\n"        ultrasonic telemetry for the Pi UI
  *               "HB:N\r\n"         every ~1 s, N = uptime tick counter
  */
 
@@ -35,35 +37,74 @@
 #define FRONT_TRIG_PIN  GPIO_PIN1
 #define FRONT_ECHO_PORT GPIO_PORTB
 #define FRONT_ECHO_PIN  GPIO_PIN2
-#define RIGHT_TRIG_PORT GPIO_PORTB
-#define RIGHT_TRIG_PIN  GPIO_PIN3
-#define RIGHT_ECHO_PORT GPIO_PORTB
-#define RIGHT_ECHO_PIN  GPIO_PIN4
 #define LEFT_TRIG_PORT  GPIO_PORTB
-#define LEFT_TRIG_PIN   GPIO_PIN5
+#define LEFT_TRIG_PIN   GPIO_PIN3
 #define LEFT_ECHO_PORT  GPIO_PORTB
-#define LEFT_ECHO_PIN   GPIO_PIN6
+#define LEFT_ECHO_PIN   GPIO_PIN4
+#define RIGHT_TRIG_PORT GPIO_PORTB
+#define RIGHT_TRIG_PIN  GPIO_PIN5
+#define RIGHT_ECHO_PORT GPIO_PORTB
+#define RIGHT_ECHO_PIN  GPIO_PIN6
 #define DRIVE_DUTY   65U     /* PWM duty cycle for motor enable */
 #define US_TIMEOUT_TICKS 60000U /* Timer1 1:2 @ 20 MHz = 0.4 us/tick, 24 ms */
 #define US_MIN_WIDTH_TICKS 145U /* about 1 cm; below this is a false/glitch pulse */
-#define US_SAMPLE_COUNT   5U
-#define US_MIN_VALID      3U
+#define US_SAMPLE_COUNT   3U
+#define US_MIN_VALID      2U
 #define US_MAX_VALID_CM   400U
 #define US_INTER_PING_MS  60U
 #define US_NO_ECHO_CM    999U
+#define OBSTACLE_BLOCK_CM 25U
 
 /* ---- forward decls ---- */
 static void process_cmd(u8 byte);
 static void uart_write_str(const char* s);
 static void uart_write_u16(u16 v);
-static void uart_write_hex8(u8 v);
-static void uart_write_uart_diag(void);
+static u8 command_block_distance(u8 cmd, u16* cm);
+static void enforce_active_obstacle_stop(void);
 static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
                          u8* status, u16* pulse_ticks);
 static void add_valid_sample(u16 samples[], u8* count, u16 sample_cm, u8 status);
 static u16 median_or_no_echo(u16 samples[], u8 count);
 static void ultrasonic_init_sensor(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin);
-static void delay_with_cmd_checks(u8 ticks_10ms);
+
+static u16 latest_front_cm = US_NO_ECHO_CM;
+static u16 latest_left_cm = US_NO_ECHO_CM;
+static u16 latest_right_cm = US_NO_ECHO_CM;
+static u8  active_drive_cmd = 'S';
+
+#define CHECK_RX_CMD()                  \
+    do                                  \
+    {                                   \
+        if(UART_RX_IsReady())           \
+        {                               \
+            process_cmd(UART_RX_GetByte()); \
+        }                               \
+    } while(0)
+
+#define DELAY_WITH_CMD_CHECKS(ticks_10ms)                 \
+    do                                                    \
+    {                                                     \
+        u8 delay_i;                                       \
+        for(delay_i = 0; delay_i < (ticks_10ms); delay_i++) \
+        {                                                 \
+            __delay_ms(10);                               \
+            CHECK_RX_CMD();                               \
+        }                                                 \
+    } while(0)
+
+#define UART_WRITE_OBSTACLE_WARN(reason, cmd, cm) \
+    do                                           \
+    {                                            \
+        uart_write_str("WARN:");                 \
+        uart_write_str(reason);                  \
+        uart_write_str(":");                     \
+        UART_Write(cmd);                         \
+        uart_write_str("=");                     \
+        uart_write_u16(cm);                      \
+        uart_write_str(",T=");                   \
+        uart_write_u16(OBSTACLE_BLOCK_CM);       \
+        uart_write_str("\r\n");                 \
+    } while(0)
 
 /* =================================================================
  *  Command handler — called from main loop only, never from ISR
@@ -71,20 +112,70 @@ static void delay_with_cmd_checks(u8 ticks_10ms);
 static void process_cmd(u8 byte)
 {
     char ack_letter;
+    u16 blocked_cm = US_NO_ECHO_CM;
 
-    switch(byte)
+    if(byte == 'S')
     {
-        case 'F': MOTOR_Forward();   ack_letter = 'F'; break;
-        case 'B': MOTOR_Backward();  ack_letter = 'B'; break;
-        case 'L': MOTOR_TurnLeft();  ack_letter = 'L'; break;
-        case 'R': MOTOR_TurnRight(); ack_letter = 'R'; break;
-        case 'S': MOTOR_Stop();      ack_letter = 'S'; break;
-        default:  return;   /* ignore '\r', '\n', anything else */
+        MOTOR_Stop();
+        active_drive_cmd = 'S';
+        ack_letter = 'S';
+    }
+    else if(command_block_distance(byte, &blocked_cm))
+    {
+        MOTOR_Stop();
+        active_drive_cmd = 'S';
+        UART_WRITE_OBSTACLE_WARN("BLOCK", byte, blocked_cm);
+        return;
+    }
+    else
+    {
+        switch(byte)
+        {
+            case 'F': MOTOR_Forward();   ack_letter = 'F'; break;
+            case 'B': MOTOR_Backward();  ack_letter = 'B'; break;
+            case 'L': MOTOR_TurnLeft();  ack_letter = 'L'; break;
+            case 'R': MOTOR_TurnRight(); ack_letter = 'R'; break;
+            default:  return;   /* ignore '\r', '\n', anything else */
+        }
+        active_drive_cmd = (u8)ack_letter;
     }
 
     uart_write_str("ACK:");
     UART_Write((u8)ack_letter);
     uart_write_str("\r\n");
+}
+
+static u8 command_block_distance(u8 cmd, u16* cm)
+{
+    switch(cmd)
+    {
+        case 'F':
+            *cm = latest_front_cm;
+            break;
+        case 'L':
+            *cm = latest_left_cm;
+            break;
+        case 'R':
+            *cm = latest_right_cm;
+            break;
+        default:
+            *cm = US_NO_ECHO_CM;
+            return 0U;
+    }
+
+    return (u8)((*cm != US_NO_ECHO_CM) && (*cm <= OBSTACLE_BLOCK_CM));
+}
+
+static void enforce_active_obstacle_stop(void)
+{
+    u16 blocked_cm = US_NO_ECHO_CM;
+
+    if(command_block_distance(active_drive_cmd, &blocked_cm))
+    {
+        MOTOR_Stop();
+        UART_WRITE_OBSTACLE_WARN("STOP", active_drive_cmd, blocked_cm);
+        active_drive_cmd = 'S';
+    }
 }
 
 /* ---- helper: blocking string send ---- */
@@ -118,43 +209,6 @@ static void uart_write_u16(u16 v)
     {
         UART_Write((u8)buf[j]);
     }
-}
-
-static void uart_write_hex8(u8 v)
-{
-    static const char hex[] = "0123456789ABCDEF";
-
-    UART_Write((u8)hex[(v >> 4) & 0x0FU]);
-    UART_Write((u8)hex[v & 0x0FU]);
-}
-
-static void uart_write_uart_diag(void)
-{
-    uart_write_str("DIAG:U1:I=");
-    uart_write_u16(UART_RX_GetIsrCount());
-    uart_write_str(",B=");
-    uart_write_u16(UART_RX_GetByteCount());
-    uart_write_str(",O=");
-    uart_write_u16(UART_RX_GetOverrunCount());
-    uart_write_str(",F=");
-    uart_write_u16(UART_RX_GetFramingCount());
-    uart_write_str(",L=");
-    uart_write_hex8(UART_RX_GetLastByte());
-    uart_write_str("\r\n");
-
-    uart_write_str("DIAG:U2:RD=");
-    uart_write_u16(UART_RX_GetReadyFlag());
-    uart_write_str(",RC=");
-    uart_write_hex8(UART_Debug_ReadRCSTA());
-    uart_write_str(",P=");
-    uart_write_hex8(UART_Debug_ReadPIR1());
-    uart_write_str(",E=");
-    uart_write_hex8(UART_Debug_ReadPIE1());
-    uart_write_str(",IC=");
-    uart_write_hex8(UART_Debug_ReadINTCON());
-    uart_write_str(",T=");
-    uart_write_hex8(UART_Debug_ReadTRISC());
-    uart_write_str("\r\n");
 }
 
 static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
@@ -269,20 +323,6 @@ static void ultrasonic_init_sensor(u8 trig_port, u8 trig_pin, u8 echo_port, u8 e
     GPIO_SetPinDirection(echo_port, echo_pin, GPIO_INPUT);
 }
 
-static void delay_with_cmd_checks(u8 ticks_10ms)
-{
-    u8 i;
-
-    for(i = 0; i < ticks_10ms; i++)
-    {
-        __delay_ms(10);
-        if(UART_RX_IsReady())
-        {
-            process_cmd(UART_RX_GetByte());
-        }
-    }
-}
-
 /* =================================================================
  *  Public entry — main() calls this
  * ================================================================= */
@@ -297,17 +337,11 @@ void MANUAL_CONTROL_Test(void)
     u16 right_cm;
     u16 sample_cm;
     u16 pulse_ticks;
-    u16 front_last_ticks = 0;
-    u16 left_last_ticks = 0;
-    u16 right_last_ticks = 0;
     u8  i;
     u8  front_valid;
     u8  left_valid;
     u8  right_valid;
     u8  status;
-    u8  front_last_status = 'N';
-    u8  left_last_status = 'N';
-    u8  right_last_status = 'N';
 
     /* Motors + PWM */
     MOTOR_Init();
@@ -329,16 +363,12 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:BUILD_NO_RB0_UART_DIAG_20260506_A\r\n");
-    uart_write_str("DIAG:UART_RX_DIAG_FLR_RAW_NO_RB0\r\n");
+    uart_write_str("DIAG:BUILD_OBSTACLE_GUARD_LR_SWAP_20260509_A\r\n");
 
     while(1)
     {
         /* Check for command captured by ISR */
-        if(UART_RX_IsReady())
-        {
-            process_cmd(UART_RX_GetByte());
-        }
+        CHECK_RX_CMD();
 
         front_valid = 0;
         left_valid = 0;
@@ -348,31 +378,26 @@ void MANUAL_CONTROL_Test(void)
         {
             sample_cm = ultrasonic_cm(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN, &status, &pulse_ticks);
             add_valid_sample(front_samples, &front_valid, sample_cm, status);
-            front_last_status = status;
-            front_last_ticks = pulse_ticks;
-            delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
+            DELAY_WITH_CMD_CHECKS((u8)(US_INTER_PING_MS / 10U));
 
             sample_cm = ultrasonic_cm(LEFT_TRIG_PORT, LEFT_TRIG_PIN, LEFT_ECHO_PORT, LEFT_ECHO_PIN, &status, &pulse_ticks);
             add_valid_sample(left_samples, &left_valid, sample_cm, status);
-            left_last_status = status;
-            left_last_ticks = pulse_ticks;
-            delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
+            DELAY_WITH_CMD_CHECKS((u8)(US_INTER_PING_MS / 10U));
 
             sample_cm = ultrasonic_cm(RIGHT_TRIG_PORT, RIGHT_TRIG_PIN, RIGHT_ECHO_PORT, RIGHT_ECHO_PIN, &status, &pulse_ticks);
             add_valid_sample(right_samples, &right_valid, sample_cm, status);
-            right_last_status = status;
-            right_last_ticks = pulse_ticks;
-            delay_with_cmd_checks((u8)(US_INTER_PING_MS / 10U));
+            DELAY_WITH_CMD_CHECKS((u8)(US_INTER_PING_MS / 10U));
         }
 
         front_cm = median_or_no_echo(front_samples, front_valid);
         left_cm = median_or_no_echo(left_samples, left_valid);
         right_cm = median_or_no_echo(right_samples, right_valid);
+        latest_front_cm = front_cm;
+        latest_left_cm = left_cm;
+        latest_right_cm = right_cm;
+        enforce_active_obstacle_stop();
 
-        if(UART_RX_IsReady())
-        {
-            process_cmd(UART_RX_GetByte());
-        }
+        CHECK_RX_CMD();
 
         uart_write_str("US:F=");
         uart_write_u16(front_cm);
@@ -381,35 +406,11 @@ void MANUAL_CONTROL_Test(void)
         uart_write_str(",R=");
         uart_write_u16(right_cm);
         uart_write_str("\r\n");
-        uart_write_str("DIAG:MED:F=");
-        uart_write_u16(front_valid);
-        uart_write_str(",L=");
-        uart_write_u16(left_valid);
-        uart_write_str(",R=");
-        uart_write_u16(right_valid);
-        uart_write_str("\r\n");
-        uart_write_str("DIAG:RAW:F=");
-        UART_Write(front_last_status);
-        uart_write_str(",");
-        uart_write_u16(front_last_ticks);
-        uart_write_str(",L=");
-        UART_Write(left_last_status);
-        uart_write_str(",");
-        uart_write_u16(left_last_ticks);
-        uart_write_str(",R=");
-        UART_Write(right_last_status);
-        uart_write_str(",");
-        uart_write_u16(right_last_ticks);
-        uart_write_str("\r\n");
-        uart_write_uart_diag();
 
         for(i = 0; i < 2U; i++)
         {
             __delay_ms(100);
-            if(UART_RX_IsReady())
-            {
-                process_cmd(UART_RX_GetByte());
-            }
+            CHECK_RX_CMD();
         }
 
         hb_tick++;
