@@ -23,6 +23,7 @@
  *               "ACK:X\r\n"        after each accepted command
  *               "WARN:...\r\n"      when obstacle guard blocks/stops motion
  *               "US:...\r\n"        ultrasonic telemetry for the Pi UI
+ *               "LDR:...\r\n"       light-state telemetry for the Pi UI
  *               "HB:N\r\n"         every ~1 s, N = uptime tick counter
  */
 
@@ -45,6 +46,11 @@
 #define RIGHT_TRIG_PIN  GPIO_PIN5
 #define RIGHT_ECHO_PORT GPIO_PORTB
 #define RIGHT_ECHO_PIN  GPIO_PIN6
+#define LDR_DO_PORT     GPIO_PORTD
+#define LDR_DO_PIN      GPIO_PIN4
+#define LDR_LED_PORT    GPIO_PORTD
+#define LDR_LED_PIN     GPIO_PIN5
+#define LDR_DARK_LEVEL  GPIO_LOW
 #define DRIVE_DUTY   65U     /* PWM duty cycle for motor enable */
 #define US_TIMEOUT_TICKS 60000U /* Timer1 1:2 @ 20 MHz = 0.4 us/tick, 24 ms */
 #define US_MIN_WIDTH_TICKS 145U /* about 1 cm; below this is a false/glitch pulse */
@@ -70,6 +76,8 @@ static void ultrasonic_init_sensor(u8 trig_port, u8 trig_pin, u8 echo_port, u8 e
 static u16 latest_front_cm = US_NO_ECHO_CM;
 static u16 latest_left_cm = US_NO_ECHO_CM;
 static u16 latest_right_cm = US_NO_ECHO_CM;
+static u8  latest_ldr_raw = GPIO_HIGH;
+static u8  latest_ldr_dark = 0U;
 static u8  active_drive_cmd = 'S';
 
 #define CHECK_RX_CMD()                  \
@@ -104,6 +112,15 @@ static u8  active_drive_cmd = 'S';
         uart_write_str(",T=");                   \
         uart_write_u16(OBSTACLE_BLOCK_CM);       \
         uart_write_str("\r\n");                 \
+    } while(0)
+
+#define LDR_UPDATE_OUTPUTS()                                      \
+    do                                                            \
+    {                                                             \
+        latest_ldr_raw = GPIO_GetPinValue(LDR_DO_PORT, LDR_DO_PIN); \
+        latest_ldr_dark = (u8)(latest_ldr_raw == LDR_DARK_LEVEL); \
+        GPIO_SetPinValue(LDR_LED_PORT, LDR_LED_PIN,               \
+                         latest_ldr_dark ? GPIO_HIGH : GPIO_LOW); \
     } while(0)
 
 /* =================================================================
@@ -354,6 +371,10 @@ void MANUAL_CONTROL_Test(void)
     ultrasonic_init_sensor(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN);
     ultrasonic_init_sensor(LEFT_TRIG_PORT,  LEFT_TRIG_PIN,  LEFT_ECHO_PORT,  LEFT_ECHO_PIN);
     ultrasonic_init_sensor(RIGHT_TRIG_PORT, RIGHT_TRIG_PIN, RIGHT_ECHO_PORT, RIGHT_ECHO_PIN);
+    GPIO_SetPinDirection(LDR_DO_PORT, LDR_DO_PIN, GPIO_INPUT);
+    GPIO_SetPinDirection(LDR_LED_PORT, LDR_LED_PIN, GPIO_OUTPUT);
+    GPIO_SetPinValue(LDR_LED_PORT, LDR_LED_PIN, GPIO_LOW);
+    LDR_UPDATE_OUTPUTS();
 
     /* UART: TX first (sets SPEN + SPBRG + BRGH),
      * then full RX init (CREN + RCIE + PEIE + GIE).
@@ -363,7 +384,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:BUILD_OBSTACLE_GUARD_LR_SWAP_20260509_A\r\n");
+    uart_write_str("DIAG:BUILD_LDR_GUARD_RD4_RD5_20260509_A\r\n");
 
     while(1)
     {
@@ -396,6 +417,7 @@ void MANUAL_CONTROL_Test(void)
         latest_left_cm = left_cm;
         latest_right_cm = right_cm;
         enforce_active_obstacle_stop();
+        LDR_UPDATE_OUTPUTS();
 
         CHECK_RX_CMD();
 
@@ -405,6 +427,11 @@ void MANUAL_CONTROL_Test(void)
         uart_write_u16(left_cm);
         uart_write_str(",R=");
         uart_write_u16(right_cm);
+        uart_write_str("\r\n");
+        uart_write_str("LDR:D=");
+        uart_write_u16(latest_ldr_dark);
+        uart_write_str(",DO=");
+        uart_write_u16(latest_ldr_raw);
         uart_write_str("\r\n");
 
         for(i = 0; i < 2U; i++)
