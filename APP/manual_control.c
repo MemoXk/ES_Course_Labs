@@ -50,7 +50,7 @@
 #define LDR_DO_PIN      GPIO_PIN4
 #define LDR_LED_PORT    GPIO_PORTD
 #define LDR_LED_PIN     GPIO_PIN5
-#define LDR_DARK_LEVEL  GPIO_LOW
+#define LDR_DARK_LEVEL  GPIO_HIGH
 #define DRIVE_DUTY   65U     /* PWM duty cycle for motor enable */
 #define US_TIMEOUT_TICKS 60000U /* Timer1 1:2 @ 20 MHz = 0.4 us/tick, 24 ms */
 #define US_MIN_WIDTH_TICKS 145U /* about 1 cm; below this is a false/glitch pulse */
@@ -384,7 +384,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:BUILD_LDR_GUARD_RD4_RD5_20260509_A\r\n");
+    uart_write_str("DIAG:BUILD_LDR_POLARITY_HIGH_DARK_20260509_A\r\n");
 
     while(1)
     {
