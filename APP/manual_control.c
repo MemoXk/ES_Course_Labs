@@ -24,6 +24,7 @@
  *               "WARN:...\r\n"      when obstacle guard blocks/stops motion
  *               "US:...\r\n"        ultrasonic telemetry for the Pi UI
  *               "LDR:...\r\n"       light-state telemetry for the Pi UI
+ *               "BELT:...\r\n"      seat-belt switch telemetry for the Pi UI
  *               "HB:N\r\n"         every ~1 s, N = uptime tick counter
  */
 
@@ -46,6 +47,9 @@
 #define RIGHT_TRIG_PIN  GPIO_PIN5
 #define RIGHT_ECHO_PORT GPIO_PORTB
 #define RIGHT_ECHO_PIN  GPIO_PIN6
+#define SEATBELT_PORT   GPIO_PORTB
+#define SEATBELT_PIN    GPIO_PIN0
+#define SEATBELT_ON_LEVEL GPIO_HIGH
 #define LDR_DO_PORT     GPIO_PORTD
 #define LDR_DO_PIN      GPIO_PIN4
 #define LDR_LED_PORT    GPIO_PORTD
@@ -65,7 +69,9 @@
 static void process_cmd(u8 byte);
 static void uart_write_str(const char* s);
 static void uart_write_u16(u16 v);
+static u8 command_requires_seatbelt(u8 cmd);
 static u8 command_block_distance(u8 cmd, u16* cm);
+static void enforce_seatbelt_stop(void);
 static void enforce_active_obstacle_stop(void);
 static u16 ultrasonic_cm(u8 trig_port, u8 trig_pin, u8 echo_port, u8 echo_pin,
                          u8* status, u16* pulse_ticks);
@@ -78,11 +84,15 @@ static u16 latest_left_cm = US_NO_ECHO_CM;
 static u16 latest_right_cm = US_NO_ECHO_CM;
 static u8  latest_ldr_raw = GPIO_HIGH;
 static u8  latest_ldr_dark = 0U;
+static u8  latest_seatbelt_raw = GPIO_LOW;
+static u8  latest_seatbelt_on = 0U;
 static u8  active_drive_cmd = 'S';
 
 #define CHECK_RX_CMD()                  \
     do                                  \
     {                                   \
+        SEATBELT_UPDATE();              \
+        enforce_seatbelt_stop();        \
         if(UART_RX_IsReady())           \
         {                               \
             process_cmd(UART_RX_GetByte()); \
@@ -114,6 +124,21 @@ static u8  active_drive_cmd = 'S';
         uart_write_str("\r\n");                 \
     } while(0)
 
+#define UART_WRITE_SEATBELT_WARN()      \
+    do                                  \
+    {                                   \
+        uart_write_str("WARN:BELT:");   \
+        uart_write_u16(latest_seatbelt_on); \
+        uart_write_str("\r\n");         \
+    } while(0)
+
+#define SEATBELT_UPDATE()                                           \
+    do                                                              \
+    {                                                               \
+        latest_seatbelt_raw = GPIO_GetPinValue(SEATBELT_PORT, SEATBELT_PIN); \
+        latest_seatbelt_on = (u8)(latest_seatbelt_raw == SEATBELT_ON_LEVEL); \
+    } while(0)
+
 #define LDR_UPDATE_OUTPUTS()                                      \
     do                                                            \
     {                                                             \
@@ -136,6 +161,13 @@ static void process_cmd(u8 byte)
         MOTOR_Stop();
         active_drive_cmd = 'S';
         ack_letter = 'S';
+    }
+    else if(command_requires_seatbelt(byte) && !latest_seatbelt_on)
+    {
+        MOTOR_Stop();
+        active_drive_cmd = 'S';
+        UART_WRITE_SEATBELT_WARN();
+        return;
     }
     else if(command_block_distance(byte, &blocked_cm))
     {
@@ -162,6 +194,11 @@ static void process_cmd(u8 byte)
     uart_write_str("\r\n");
 }
 
+static u8 command_requires_seatbelt(u8 cmd)
+{
+    return (u8)(cmd == 'F' || cmd == 'B' || cmd == 'L' || cmd == 'R');
+}
+
 static u8 command_block_distance(u8 cmd, u16* cm)
 {
     switch(cmd)
@@ -181,6 +218,16 @@ static u8 command_block_distance(u8 cmd, u16* cm)
     }
 
     return (u8)((*cm != US_NO_ECHO_CM) && (*cm <= OBSTACLE_BLOCK_CM));
+}
+
+static void enforce_seatbelt_stop(void)
+{
+    if(!latest_seatbelt_on && active_drive_cmd != 'S')
+    {
+        MOTOR_Stop();
+        active_drive_cmd = 'S';
+        UART_WRITE_SEATBELT_WARN();
+    }
 }
 
 static void enforce_active_obstacle_stop(void)
@@ -371,6 +418,8 @@ void MANUAL_CONTROL_Test(void)
     ultrasonic_init_sensor(FRONT_TRIG_PORT, FRONT_TRIG_PIN, FRONT_ECHO_PORT, FRONT_ECHO_PIN);
     ultrasonic_init_sensor(LEFT_TRIG_PORT,  LEFT_TRIG_PIN,  LEFT_ECHO_PORT,  LEFT_ECHO_PIN);
     ultrasonic_init_sensor(RIGHT_TRIG_PORT, RIGHT_TRIG_PIN, RIGHT_ECHO_PORT, RIGHT_ECHO_PIN);
+    GPIO_SetPinDirection(SEATBELT_PORT, SEATBELT_PIN, GPIO_INPUT);
+    SEATBELT_UPDATE();
     GPIO_SetPinDirection(LDR_DO_PORT, LDR_DO_PIN, GPIO_INPUT);
     GPIO_SetPinDirection(LDR_LED_PORT, LDR_LED_PIN, GPIO_OUTPUT);
     GPIO_SetPinValue(LDR_LED_PORT, LDR_LED_PIN, GPIO_LOW);
@@ -384,7 +433,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:BUILD_LDR_POLARITY_HIGH_DARK_20260509_A\r\n");
+    uart_write_str("DIAG:BUILD_SEATBELT_RB0_LDR_20260509_A\r\n");
 
     while(1)
     {
@@ -418,6 +467,8 @@ void MANUAL_CONTROL_Test(void)
         latest_right_cm = right_cm;
         enforce_active_obstacle_stop();
         LDR_UPDATE_OUTPUTS();
+        SEATBELT_UPDATE();
+        enforce_seatbelt_stop();
 
         CHECK_RX_CMD();
 
@@ -432,6 +483,11 @@ void MANUAL_CONTROL_Test(void)
         uart_write_u16(latest_ldr_dark);
         uart_write_str(",DO=");
         uart_write_u16(latest_ldr_raw);
+        uart_write_str("\r\n");
+        uart_write_str("BELT:S=");
+        uart_write_u16(latest_seatbelt_on);
+        uart_write_str(",IN=");
+        uart_write_u16(latest_seatbelt_raw);
         uart_write_str("\r\n");
 
         for(i = 0; i < 2U; i++)
