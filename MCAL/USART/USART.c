@@ -11,16 +11,20 @@
 void (*UART_Callback)(u8) = 0;
 
 /* =================================
-   ISR-safe RX flag pair
-   Written by UART_ISR (inside ISR),
-   read by main loop via API below.
-   Avoids function-pointer computed
-   calls on PIC16 which are
-   unreliable inside ISR context.
+   ISR-safe RX ring buffer.
+   UART_ISR enqueues command bytes;
+   the foreground drains them later.
+   This avoids losing quick commands
+   while the PIC is measuring sensors
+   or writing telemetry.
 ================================= */
 
-static volatile u8 UART_rx_data  = 0;
-static volatile u8 UART_rx_ready = 0;
+#define UART_RX_BUFFER_SIZE 8U
+
+static volatile u8 UART_rx_buffer[UART_RX_BUFFER_SIZE];
+static volatile u8 UART_rx_head = 0;
+static volatile u8 UART_rx_tail = 0;
+static volatile u8 UART_rx_count = 0;
 static volatile u16 UART_rx_isr_count = 0;
 static volatile u16 UART_rx_byte_count = 0;
 static volatile u16 UART_rx_overrun_count = 0;
@@ -48,9 +52,16 @@ static u16 UART_ReadCounterAtomic(volatile u16* counter)
 
 void UART_RX_Init(void)
 {
+    u8 i;
+
     SET_BIT(TRISC, UART_RX_TRIS_BIT);
-    UART_rx_data = 0;
-    UART_rx_ready = 0;
+    for(i = 0; i < UART_RX_BUFFER_SIZE; i++)
+    {
+        UART_rx_buffer[i] = 0;
+    }
+    UART_rx_head = 0;
+    UART_rx_tail = 0;
+    UART_rx_count = 0;
 
 #if (UART_HIGH_SPEED == 1)
     SET_BIT(TXSTA , BRGH_BIT);          /* High Speed Mode (BRGH=1) */
@@ -188,17 +199,15 @@ void UART_ISR(void)
     }
 
     /* Reading RCREG clears RCIF and any framing error flag.
-     * We write directly to the volatile flag pair — NO function-pointer
+     * We write directly to the volatile RX ring — NO function-pointer
      * call.  On PIC16 a computed call (via pointer) inside an ISR
      * requires correct PCLATH setup at runtime; XC8's code generation
      * for that case is fragile and silently misfired here.
-     * Direct assignment to a volatile variable is always safe.
+     * Direct enqueue into volatile storage is always safe.
      *
      * Line-ending bytes ('\r', '\n') are consumed but discarded.
-     * The Pi appends '\n' to every command ("F\n").  Without this
-     * filter the '\n' ISR fires ~1 ms after the command byte and
-     * overwrites UART_rx_data before the main loop has a chance to
-     * read it, so the loop always sees '\n' → default case → no ACK. */
+     * The Pi appends '\n' to every command ("F\n"), so filtering keeps
+     * line endings out of the command queue. */
     ferr = GET_BIT(RCSTA, FERR_BIT);
     rx_byte = RCREG;
     UART_rx_last_byte = rx_byte;
@@ -209,8 +218,20 @@ void UART_ISR(void)
     }
     if(rx_byte == '\r' || rx_byte == '\n') { return; }
 
-    UART_rx_data = rx_byte;
-    UART_rx_ready = 1;
+    if(UART_rx_count < UART_RX_BUFFER_SIZE)
+    {
+        UART_rx_buffer[UART_rx_head] = rx_byte;
+        UART_rx_head++;
+        if(UART_rx_head >= UART_RX_BUFFER_SIZE)
+        {
+            UART_rx_head = 0;
+        }
+        UART_rx_count++;
+    }
+    else
+    {
+        UART_rx_overrun_count++;
+    }
     UART_rx_byte_count++;
 }
 
@@ -221,19 +242,27 @@ void UART_ISR(void)
 
 u8 UART_RX_IsReady(void)
 {
-    return UART_rx_ready;
+    return (u8)(UART_rx_count > 0U);
 }
 
 u8 UART_RX_GetByte(void)
 {
-    u8 data;
+    u8 data = 0;
     u8 gie_was_enabled;
 
     gie_was_enabled = GET_BIT(INTCON, GIE_BIT);
     CLR_BIT(INTCON, GIE_BIT);
 
-    data = UART_rx_data;
-    UART_rx_ready = 0;
+    if(UART_rx_count > 0U)
+    {
+        data = UART_rx_buffer[UART_rx_tail];
+        UART_rx_tail++;
+        if(UART_rx_tail >= UART_RX_BUFFER_SIZE)
+        {
+            UART_rx_tail = 0;
+        }
+        UART_rx_count--;
+    }
 
     if(gie_was_enabled)
     {
@@ -270,7 +299,7 @@ u8 UART_RX_GetLastByte(void)
 
 u8 UART_RX_GetReadyFlag(void)
 {
-    return UART_rx_ready;
+    return UART_rx_count;
 }
 
 u8 UART_Debug_ReadRCSTA(void)

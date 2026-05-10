@@ -4,8 +4,8 @@
  * UART-driven manual motor control — ISR-driven RX.
  *
  * UART_RX_Init() enables the receiver with interrupts (RCIE+PEIE+GIE).
- * When a byte arrives the ISR fires instantly, reads RCREG, and sets a
- * volatile flag pair (UART_rx_data / UART_rx_ready) with NO function-
+ * When a byte arrives the ISR fires instantly, reads RCREG, and queues it
+ * in a small RX ring buffer with NO function-
  * pointer call — that was the PIC16 PCLATH trap that silently broke the
  * old callback approach.  The main loop checks UART_RX_IsReady() and
  * calls UART_RX_GetByte(); this works identically for manual control
@@ -91,11 +91,15 @@ static u8  active_drive_cmd = 'S';
 #define CHECK_RX_CMD()                  \
     do                                  \
     {                                   \
+        u8 rx_drain_count = 0;          \
         SEATBELT_UPDATE();              \
         enforce_seatbelt_stop();        \
-        if(UART_RX_IsReady())           \
+        while(UART_RX_IsReady() && rx_drain_count < 8U) \
         {                               \
             process_cmd(UART_RX_GetByte()); \
+            rx_drain_count++;           \
+            SEATBELT_UPDATE();          \
+            enforce_seatbelt_stop();    \
         }                               \
     } while(0)
 
@@ -427,13 +431,13 @@ void MANUAL_CONTROL_Test(void)
 
     /* UART: TX first (sets SPEN + SPBRG + BRGH),
      * then full RX init (CREN + RCIE + PEIE + GIE).
-     * ISR writes UART_rx_data/UART_rx_ready; main loop reads
+     * ISR queues bytes in the UART RX ring; main loop reads
      * via UART_RX_IsReady() / UART_RX_GetByte().              */
     UART_TX_Init();
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:BUILD_SEATBELT_RB0_LDR_20260509_A\r\n");
+    uart_write_str("DIAG:BUILD_SMOOTH_RX_RING_20260510_A\r\n");
 
     while(1)
     {
@@ -479,16 +483,21 @@ void MANUAL_CONTROL_Test(void)
         uart_write_str(",R=");
         uart_write_u16(right_cm);
         uart_write_str("\r\n");
+        CHECK_RX_CMD();
+
         uart_write_str("LDR:D=");
         uart_write_u16(latest_ldr_dark);
         uart_write_str(",DO=");
         uart_write_u16(latest_ldr_raw);
         uart_write_str("\r\n");
+        CHECK_RX_CMD();
+
         uart_write_str("BELT:S=");
         uart_write_u16(latest_seatbelt_on);
         uart_write_str(",IN=");
         uart_write_u16(latest_seatbelt_raw);
         uart_write_str("\r\n");
+        CHECK_RX_CMD();
 
         for(i = 0; i < 2U; i++)
         {
