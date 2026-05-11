@@ -17,6 +17,8 @@
  *               'L'  turn left
  *               'R'  turn right
  *               'S'  stop
+ *               'U'  speed up one PWM step
+ *               'D'  speed down one PWM step
  *               (any '\n' or '\r' is silently ignored)
  *
  *   PIC → Pi :  "BOOT\r\n"        once at startup
@@ -25,6 +27,7 @@
  *               "US:...\r\n"        ultrasonic telemetry for the Pi UI
  *               "LDR:...\r\n"       light-state telemetry for the Pi UI
  *               "BELT:...\r\n"      seat-belt switch telemetry for the Pi UI
+ *               "SPD:...\r\n"       PWM speed telemetry for the Pi UI
  *               "HB:N\r\n"         every ~1 s, N = uptime tick counter
  */
 
@@ -55,7 +58,11 @@
 #define LDR_LED_PORT    GPIO_PORTD
 #define LDR_LED_PIN     GPIO_PIN5
 #define LDR_DARK_LEVEL  GPIO_HIGH
-#define DRIVE_DUTY   65U     /* PWM duty cycle for motor enable */
+#define DRIVE_START_DUTY 65U  /* PWM duty cycle restored after speed limit trip */
+#define DRIVE_MIN_DUTY   45U
+#define DRIVE_WARN_DUTY  80U
+#define DRIVE_MAX_DUTY   90U
+#define DRIVE_STEP_DUTY  5U
 #define US_TIMEOUT_TICKS 60000U /* Timer1 1:2 @ 20 MHz = 0.4 us/tick, 24 ms */
 #define US_MIN_WIDTH_TICKS 145U /* about 1 cm; below this is a false/glitch pulse */
 #define US_SAMPLE_COUNT   3U
@@ -87,6 +94,7 @@ static u8  latest_ldr_dark = 0U;
 static u8  latest_seatbelt_raw = GPIO_LOW;
 static u8  latest_seatbelt_on = 0U;
 static u8  active_drive_cmd = 'S';
+static u8  current_drive_duty = DRIVE_START_DUTY;
 
 #define CHECK_RX_CMD()                  \
     do                                  \
@@ -136,6 +144,61 @@ static u8  active_drive_cmd = 'S';
         uart_write_str("\r\n");         \
     } while(0)
 
+#define UART_WRITE_ACK(ack)             \
+    do                                  \
+    {                                   \
+        uart_write_str("ACK:");         \
+        UART_Write((u8)(ack));          \
+        uart_write_str("\r\n");         \
+    } while(0)
+
+#define RESET_DRIVE_SPEED()                 \
+    do                                      \
+    {                                       \
+        current_drive_duty = DRIVE_START_DUTY; \
+        PWM_SetDutyCycle(current_drive_duty);  \
+    } while(0)
+
+#define UART_WRITE_SPEED_NEAR(current, threshold) \
+    do                                           \
+    {                                            \
+        uart_write_str("WARN:SPD:NEAR,P=");      \
+        uart_write_u16(current);                 \
+        uart_write_str(",T=");                   \
+        uart_write_u16(threshold);               \
+        uart_write_str("\r\n");                 \
+    } while(0)
+
+#define UART_WRITE_SPEED_LIMIT(requested, threshold, reset_to) \
+    do                                                        \
+    {                                                         \
+        uart_write_str("WARN:SPD:LIMIT,P=");                  \
+        uart_write_u16(requested);                            \
+        uart_write_str(",T=");                                \
+        uart_write_u16(threshold);                            \
+        uart_write_str(",R=");                                \
+        uart_write_u16(reset_to);                             \
+        uart_write_str("\r\n");                              \
+    } while(0)
+
+#define UART_WRITE_SPEED_TELEMETRY()       \
+    do                                     \
+    {                                      \
+        uart_write_str("SPD:P=");          \
+        uart_write_u16(current_drive_duty);\
+        uart_write_str(",S=");             \
+        uart_write_u16(DRIVE_START_DUTY);  \
+        uart_write_str(",N=");             \
+        uart_write_u16(DRIVE_MIN_DUTY);    \
+        uart_write_str(",W=");             \
+        uart_write_u16(DRIVE_WARN_DUTY);   \
+        uart_write_str(",M=");             \
+        uart_write_u16(DRIVE_MAX_DUTY);    \
+        uart_write_str(",K=");             \
+        uart_write_u16(DRIVE_STEP_DUTY);   \
+        uart_write_str("\r\n");           \
+    } while(0)
+
 #define SEATBELT_UPDATE()                                           \
     do                                                              \
     {                                                               \
@@ -159,8 +222,49 @@ static void process_cmd(u8 byte)
 {
     char ack_letter;
     u16 blocked_cm = US_NO_ECHO_CM;
+    u8 requested_duty;
 
-    if(byte == 'S')
+    if(byte == 'U')
+    {
+        requested_duty = (u8)(current_drive_duty + DRIVE_STEP_DUTY);
+        if(requested_duty > DRIVE_MAX_DUTY)
+        {
+            MOTOR_Stop();
+            active_drive_cmd = 'S';
+            RESET_DRIVE_SPEED();
+            UART_WRITE_SPEED_LIMIT(requested_duty, DRIVE_MAX_DUTY, DRIVE_START_DUTY);
+            UART_WRITE_SPEED_TELEMETRY();
+            return;
+        }
+
+        current_drive_duty = requested_duty;
+        PWM_SetDutyCycle(current_drive_duty);
+        UART_WRITE_ACK('U');
+
+        if(current_drive_duty >= DRIVE_WARN_DUTY)
+        {
+            UART_WRITE_SPEED_NEAR(current_drive_duty, DRIVE_MAX_DUTY);
+        }
+        UART_WRITE_SPEED_TELEMETRY();
+        return;
+    }
+    else if(byte == 'D')
+    {
+        if(current_drive_duty <= (u8)(DRIVE_MIN_DUTY + DRIVE_STEP_DUTY))
+        {
+            current_drive_duty = DRIVE_MIN_DUTY;
+        }
+        else
+        {
+            current_drive_duty = (u8)(current_drive_duty - DRIVE_STEP_DUTY);
+        }
+
+        PWM_SetDutyCycle(current_drive_duty);
+        UART_WRITE_ACK('D');
+        UART_WRITE_SPEED_TELEMETRY();
+        return;
+    }
+    else if(byte == 'S')
     {
         MOTOR_Stop();
         active_drive_cmd = 'S';
@@ -193,9 +297,7 @@ static void process_cmd(u8 byte)
         active_drive_cmd = (u8)ack_letter;
     }
 
-    uart_write_str("ACK:");
-    UART_Write((u8)ack_letter);
-    uart_write_str("\r\n");
+    UART_WRITE_ACK((u8)ack_letter);
 }
 
 static u8 command_requires_seatbelt(u8 cmd)
@@ -414,7 +516,8 @@ void MANUAL_CONTROL_Test(void)
     /* Motors + PWM */
     MOTOR_Init();
     PWM_Init();
-    PWM_SetDutyCycle(DRIVE_DUTY);
+    current_drive_duty = DRIVE_START_DUTY;
+    PWM_SetDutyCycle(current_drive_duty);
     PWM_Start();
     TIMER1_Init();
 
@@ -437,7 +540,8 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:BUILD_SMOOTH_RX_RING_20260510_A\r\n");
+    uart_write_str("DIAG:BUILD_SPEED_GUARD_20260511_A\r\n");
+    UART_WRITE_SPEED_TELEMETRY();
 
     while(1)
     {
@@ -497,6 +601,9 @@ void MANUAL_CONTROL_Test(void)
         uart_write_str(",IN=");
         uart_write_u16(latest_seatbelt_raw);
         uart_write_str("\r\n");
+        CHECK_RX_CMD();
+
+        UART_WRITE_SPEED_TELEMETRY();
         CHECK_RX_CMD();
 
         for(i = 0; i < 2U; i++)
