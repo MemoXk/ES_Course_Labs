@@ -26,6 +26,7 @@
 #include "uart_test.h"
 #include "../MCAL/USART/USART_Interface.h"
 #include "../MCAL/GPIO/GPIO_interface.h"
+#include "../MCAL/DELAY/DELAY_Interface.h"
 
 #define HB_PORT   GPIO_PORTB
 #define HB_PIN    GPIO_PIN0
@@ -78,22 +79,22 @@ static void short_long_blink(void)
 {
     /* SHORT flash */
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-    __delay_ms(100);
+    DELAY_ms(100U);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
     /* small gap */
-    __delay_ms(150);
+    DELAY_ms(150U);
 
     /* LONG flash */
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_HIGH);
-    __delay_ms(250);
-    __delay_ms(250);
+    DELAY_ms(250U);
+    DELAY_ms(250U);
     GPIO_SetPinValue(HB_PORT, HB_PIN, GPIO_LOW);
 
     /* long pause so each short-LONG pair is visually distinct */
-    __delay_ms(250);
-    __delay_ms(250);
-    __delay_ms(100);
+    DELAY_ms(250U);
+    DELAY_ms(250U);
+    DELAY_ms(100U);
 }
 
 void UART_Test(void)

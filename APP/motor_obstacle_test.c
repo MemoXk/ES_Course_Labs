@@ -2,6 +2,7 @@
 #include "../HAL/MOTOR/MOTOR_interface.h"
 #include "../HAL/SOFT_PWM/SOFT_PWM_interface.h"
 #include "../HAL/ULTRASONIC/ULTRASONIC_interface.h"
+#include "../MCAL/DELAY/DELAY_Interface.h"
 
 /*
  * Drive forward at 25% software PWM speed.
@@ -32,7 +33,7 @@ void MOTOR_OBSTACLE_Test(void)
 
             while(ULTRASONIC_GetDistance(ULTRASONIC_FRONT) < ULTRASONIC_STOP_THRESHOLD)
             {
-                __delay_ms(50);
+                DELAY_ms(50U);
             }
 
             MOTOR_Forward();

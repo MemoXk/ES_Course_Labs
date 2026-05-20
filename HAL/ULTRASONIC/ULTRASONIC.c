@@ -1,4 +1,5 @@
 #include "ULTRASONIC_interface.h"
+#include "../../MCAL/DELAY/DELAY_Interface.h"
 
 #define ULTRASONIC_SELECT_PINS(sensor_id, trig_port, trig_pin, echo_port, echo_pin, valid) \
     do                                                                                    \
@@ -121,9 +122,9 @@ u16 ULTRASONIC_ReadDetailed(u8 sensor_id, u8* status, u16* pulse_ticks)
     TIMER1_Stop();
 
     GPIO_SetPinValue(trig_port, trig_pin, GPIO_LOW);
-    __delay_us(2);
+    DELAY_us(2U);
     GPIO_SetPinValue(trig_port, trig_pin, GPIO_HIGH);
-    __delay_us(10);
+    DELAY_us(10U);
     GPIO_SetPinValue(trig_port, trig_pin, GPIO_LOW);
 
     TIMER1_Stop();

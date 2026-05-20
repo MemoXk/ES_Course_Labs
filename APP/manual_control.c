@@ -21,6 +21,7 @@
 #include "manual_control_config.h"
 #include "../MCAL/USART/USART_Interface.h"
 #include "../MCAL/PWM/PWM_Interface.h"
+#include "../MCAL/DELAY/DELAY_Interface.h"
 #include "../HAL/MOTOR/MOTOR_interface.h"
 #include "../HAL/ULTRASONIC/ULTRASONIC_interface.h"
 #include "../HAL/SWITCH/Switch_interface.h"
@@ -84,7 +85,7 @@ static u8  current_drive_duty = MANUAL_DRIVE_START_DUTY;
         u8 delay_i;                                              \
         for(delay_i = 0U; delay_i < (ticks_10ms); delay_i++)     \
         {                                                        \
-            __delay_ms(MANUAL_DELAY_SLICE_MS);                   \
+            DELAY_ms(MANUAL_DELAY_SLICE_MS);                     \
             DRAIN_RX_COMMANDS();                                 \
         }                                                        \
     } while(0)

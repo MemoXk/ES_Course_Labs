@@ -1,3 +1,4 @@
+#include "Interrupt_Manager_Interface.h"
 #include "Interrupt_Manager_config.h"
 #include "../USART/USART_Interface.h"
 #include "../EXT_INT/EXT_INT_Interface.h"
@@ -7,12 +8,12 @@
 /*
  * Central interrupt dispatcher for PIC16F877A.
  *
- * XC8 uses a single __interrupt() entry point.
+ * PIC16F877A uses a single interrupt entry point.
  * Each peripheral's ISR function is called after checking its flag.
  * Flags are cleared inside each driver's ISR routine.
  */
 
-void __interrupt() isr(void)
+INTERRUPT_MANAGER_ISR_ENTRY(isr)
 {
 #if INTERRUPT_MANAGER_UART_RX_ENABLE
     /* ---- UART RX interrupt (PIR1.RCIF) ---- */

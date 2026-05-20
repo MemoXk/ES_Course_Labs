@@ -60,9 +60,38 @@ jobs:
 
           echo "Layer checks passed successfully"
 
-      # Step 4: Compile all C files (syntax only)
-      - name: Compile all C files (syntax check)
+      # Step 4: Guard compiler-specific builtins behind project wrappers
+      - name: Check compiler abstraction boundaries
         run: |
-          echo "Compiling all .c files for syntax check..."
-          find . -name "*.c" -print | xargs gcc -Wall -Wextra -fsyntax-only
+          echo "Checking compiler abstraction boundaries..."
+
+          if grep -rniE '\b__delay_(us|ms)[[:space:]]*\(' APP HAL MCAL SERVICES \
+              --exclude='DELAY.c'; then
+            echo " ERROR: Use MCAL/DELAY instead of direct XC8 delay builtins."
+            exit 1
+          fi
+
+          if grep -rniE '\b__interrupt\b' APP HAL MCAL SERVICES \
+              --exclude='Interrupt_Manager_Interface.h'; then
+            echo " ERROR: Interrupt syntax must stay behind Interrupt_Manager_Interface.h."
+            exit 1
+          fi
+
+          if grep -rniE '#include[[:space:]]*<xc\.h>' APP HAL MCAL SERVICES \
+              --exclude='STD_TYPES.h'; then
+            echo " ERROR: Only SERVICES/STD_TYPES.h may include xc.h."
+            exit 1
+          fi
+
+          echo "Compiler abstraction checks passed"
+
+      # Step 5: Compile all C files with host-lint shims (syntax only)
+      - name: Compile all C files (host syntax check)
+        run: |
+          echo "Compiling all .c files for host syntax check..."
+          find . -name "*.c" -print0 | xargs -0 gcc \
+            -DEMBEDDED_HOST_LINT \
+            -I. \
+            -Wall -Wextra -Wno-unknown-pragmas \
+            -fsyntax-only
           echo "Compilation successful"

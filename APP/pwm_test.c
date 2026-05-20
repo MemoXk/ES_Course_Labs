@@ -18,6 +18,7 @@
 
 #include "../MCAL/PWM/PWM_Interface.h"
 #include "../MCAL/GPIO/GPIO_interface.h"
+#include "../MCAL/DELAY/DELAY_Interface.h"
 #include "pwm_test.h"
 
 void PWM_Test(void)
@@ -40,7 +41,7 @@ void PWM_Test(void)
             PWM_SetDutyCycle(duty);
             hb ^= 1;
             GPIO_SetPinValue(GPIO_PORTD, GPIO_PIN0, hb ? GPIO_HIGH : GPIO_LOW);
-            __delay_ms(20);
+            DELAY_ms(20U);
         }
 
         /* Fade out: 100% → 0% */
@@ -49,9 +50,9 @@ void PWM_Test(void)
             PWM_SetDutyCycle(duty);
             hb ^= 1;
             GPIO_SetPinValue(GPIO_PORTD, GPIO_PIN0, hb ? GPIO_HIGH : GPIO_LOW);
-            __delay_ms(20);
+            DELAY_ms(20U);
         }
         PWM_SetDutyCycle(0);
-        __delay_ms(20);
+        DELAY_ms(20U);
     }
 }

@@ -2,6 +2,7 @@
 #include "../HAL/MOTOR/MOTOR_interface.h"
 #include "../MCAL/PWM/PWM_Interface.h"
 #include "../MCAL/GPIO/GPIO_interface.h"
+#include "../MCAL/DELAY/DELAY_Interface.h"
 
 /*
  * Motor speed test at 25% PWM, plus heartbeat LED.
@@ -39,10 +40,10 @@ static void hb_toggle(void)
 /* Wait 2 seconds total, blinking heartbeat every 500 ms */
 static void delay_2s(void)
 {
-    __delay_ms(500); hb_toggle();
-    __delay_ms(500); hb_toggle();
-    __delay_ms(500); hb_toggle();
-    __delay_ms(500); hb_toggle();
+    DELAY_ms(500U); hb_toggle();
+    DELAY_ms(500U); hb_toggle();
+    DELAY_ms(500U); hb_toggle();
+    DELAY_ms(500U); hb_toggle();
 }
 
 void MOTOR_Test(void)

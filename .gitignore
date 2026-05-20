@@ -19,3 +19,4 @@
 .DS_Store
 Thumbs.db
 .claude/
+.github/workflows/build_layer_check.yml

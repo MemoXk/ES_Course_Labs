@@ -2,10 +2,10 @@
 #define STD_TYPES_H
 
 /*
- * Crystal frequency — required by XC8 __delay_ms() / __delay_us().
+ * Crystal frequency used by the delay and baud-rate drivers.
  * Catch the case where MPLAB X has a project-level -D_XTAL_FREQ=...
  * macro that would silently override this value (which would cause
- * UART baud rates and __delay_ms timing to be wrong).
+ * UART baud rates and delay timing to be wrong).
  */
 #ifdef _XTAL_FREQ
 #  if (_XTAL_FREQ != 20000000UL)
@@ -15,8 +15,12 @@
 #  define _XTAL_FREQ  20000000UL
 #endif
 
-/* XC8: provides __delay_ms, __delay_us and all PIC SFR definitions */
+/* XC8: provides delay builtins and all PIC SFR definitions.
+ * Host lint builds define EMBEDDED_HOST_LINT and use the register
+ * definitions already guarded inside the MCAL private headers. */
+#ifndef EMBEDDED_HOST_LINT
 #include <xc.h>
+#endif
 
 /* Signed Types */
 typedef signed char        s8;
