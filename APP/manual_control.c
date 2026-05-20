@@ -70,7 +70,7 @@
 #define US_MAX_VALID_CM   400U
 #define US_INTER_PING_MS  60U
 #define US_NO_ECHO_CM    999U
-#define OBSTACLE_BLOCK_CM 50U
+#define OBSTACLE_BLOCK_CM 100U
 
 /* ---- forward decls ---- */
 static void process_cmd(u8 byte);
@@ -540,7 +540,7 @@ void MANUAL_CONTROL_Test(void)
     UART_RX_Init();
 
     uart_write_str("BOOT\r\n");
-    uart_write_str("DIAG:BUILD_OBSTACLE_50CM_20260519_A\r\n");
+    uart_write_str("DIAG:BUILD_OBSTACLE_100CM_20260520_A\r\n");
     UART_WRITE_SPEED_TELEMETRY();
 
     while(1)
