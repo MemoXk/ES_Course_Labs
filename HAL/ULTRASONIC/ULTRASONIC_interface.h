@@ -26,4 +26,18 @@ void ULTRASONIC_InitSensor(u8 sensor_id);
  */
 u16 ULTRASONIC_GetDistance(u8 sensor_id);
 
+/*
+ * Trigger one measurement and return detailed status for diagnostics.
+ * status codes:
+ *   'O' = ok, 'H' = stale echo high, 'N' = no rising edge,
+ *   'T' = echo high timed out, 'S' = too short/glitch, 'I' = invalid sensor.
+ */
+u16 ULTRASONIC_ReadDetailed(u8 sensor_id, u8* status, u16* pulse_ticks);
+
+/*
+ * Helpers for the app-level three-sample median filter.
+ */
+void ULTRASONIC_AddValidSample(u16 samples[], u8* count, u16 sample_cm, u8 status);
+u16  ULTRASONIC_MedianOrNoEcho(u16 samples[], u8 count);
+
 #endif

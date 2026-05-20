@@ -1,19 +1,10 @@
 #include "Switch_interface.h"
 
-/* =========================================================
-   Switch_Init
-========================================================= */
-
 void Switch_Init(u8 port, u8 pin, u8 active)
 {
-    (void)active;                               /* active polarity is stateless */
+    (void)active; /* Active polarity is stateless. */
     GPIO_SetPinDirection(port, pin, GPIO_INPUT);
 }
-
-/* =========================================================
-   Switch_GetState
-   Returns SWITCH_PRESSED or SWITCH_RELEASED
-========================================================= */
 
 u8 Switch_GetState(u8 port, u8 pin, u8 active)
 {
@@ -21,19 +12,16 @@ u8 Switch_GetState(u8 port, u8 pin, u8 active)
 
     if(active == SWITCH_ACTIVE_LOW)
     {
-        /* Pin low → pressed */
         return (raw == GPIO_LOW) ? SWITCH_PRESSED : SWITCH_RELEASED;
     }
-    else
-    {
-        /* Pin high → pressed */
-        return (raw == GPIO_HIGH) ? SWITCH_PRESSED : SWITCH_RELEASED;
-    }
+
+    return (raw == GPIO_HIGH) ? SWITCH_PRESSED : SWITCH_RELEASED;
 }
 
-/* =========================================================
-   Switch_IsPressed
-========================================================= */
+u8 Switch_ReadRaw(u8 port, u8 pin)
+{
+    return GPIO_GetPinValue(port, pin);
+}
 
 u8 Switch_IsPressed(u8 port, u8 pin, u8 active)
 {
